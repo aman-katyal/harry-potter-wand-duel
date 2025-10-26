@@ -1,0 +1,25 @@
+.program ws2812
+.side_set 1
+
+; These values are tuned for an 8MHz PIO clock (1 cycle = 125ns)
+; to be closer to the center of the WS2812B datasheet specification.
+; Total cycles per bit is 10 (1.25us), for an 800kHz data rate.
+.define public T1 3
+.define public T2 3
+.define public T3 4
+
+.wrap_target
+bitloop:
+    out x, 1          side 0 [T3 - 1]
+    jmp !x do_zero    side 1 [T1 - 1]
+do_one:
+    jmp bitloop       side 1 [T2 - 1]
+do_zero:
+    nop               side 0 [T2 - 1]
+.wrap
+
+; New Timings Breakdown:
+; T0H: T1      = 3 cycles = 0.375us (Spec: 0.4us, much closer)
+; T0L: T3 + T2 = 7 cycles = 0.875us (Spec: 0.85us, very close)
+; T1H: T1 + T2 = 6 cycles = 0.750us (Spec: 0.8us, very close)
+; T1L: T3      = 4 cycles = 0.500us (Spec: 0.45us, very close)
