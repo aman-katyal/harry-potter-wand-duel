@@ -62,7 +62,7 @@ int main() {
     // To change the effect, just change the numbers in this array.
     // Effect #84 = "Transition Ramp Up Medium Smooth 1 (0 to 100%)"
     // Effect #1  = "Strong Click - 100%"
-    const uint8_t notification_buzz[] = {84, 1};
+    const uint8_t notification_buzz[] = {84};
     int num_effects = sizeof(notification_buzz) / sizeof(notification_buzz[0]);
 
     /* --- EXAMPLE of a different sequence you could try ---
