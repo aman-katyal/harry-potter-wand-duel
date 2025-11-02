@@ -1,114 +1,75 @@
-/*
- * Harry Potter Wand IR Transmitter
- * RP2350 – NEC 38 kHz carrier implementation
- * Author: Rhea Virk
- *
- * Sends NEC-encoded commands at 38 kHz using PWM on GPIO 36
- * for use with TSMP96000 or similar 38 kHz IR receivers.
- */
-
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
 
 // -----------------------------------------------------------------------------
-// IR protocol constants (NEC standard, microseconds)
+// Simple IR Protocol Constants (microseconds)
 // -----------------------------------------------------------------------------
-#define NEC_HDR_MARK    9000
-#define NEC_HDR_SPACE   4500
-#define NEC_BIT_MARK     560
-#define NEC_ONE_SPACE   1690
-#define NEC_ZERO_SPACE   560
-#define NEC_STOP_MARK    560
+#define SIMPLE_HDR_MARK   2000  // Long start pulse
+#define SIMPLE_HDR_SPACE  1000  // Space after start pulse
+#define SIMPLE_BIT_MARK    500  // The pulse for every bit
+#define SIMPLE_ONE_SPACE  1000  // The space for a '1'
+#define SIMPLE_ZERO_SPACE  500  // The space for a '0'
 
 // -----------------------------------------------------------------------------
 // PWM configuration for 38 kHz IR carrier
 // -----------------------------------------------------------------------------
-#define IR_GPIO    36        // connect emitter driver here
+#define IR_GPIO    36        // The pin your emitter is on
 #define PWM_FREQ   38000     // 38 kHz carrier
-#define PWM_DUTY   0.33f     // 33 % duty cycle
 
 static uint slice_num;
 
-// -----------------------------------------------------------------------------
-// Initialize PWM for 38 kHz modulation (disabled by default)
-// -----------------------------------------------------------------------------
 void ir_pwm_init(void) {
     gpio_set_function(IR_GPIO, GPIO_FUNC_PWM);
     slice_num = pwm_gpio_to_slice_num(IR_GPIO);
-
-    // 125 MHz system clock → 38 kHz carrier → TOP ≈ 3289
     uint32_t top = (uint32_t)(125000000 / PWM_FREQ) - 1;
     pwm_set_wrap(slice_num, top);
-
-    uint32_t level = (uint32_t)(PWM_DUTY * top);
-    pwm_set_chan_level(slice_num, PWM_CHAN_A, level);
-
-    pwm_set_enabled(slice_num, false); // start off
+    pwm_set_chan_level(slice_num, PWM_CHAN_A, (uint32_t)(0.33f * top));
+    pwm_set_enabled(slice_num, false);
 }
 
-// -----------------------------------------------------------------------------
-// Helpers for enabling/disabling carrier
-// -----------------------------------------------------------------------------
-static inline void pwm_on(void)  { pwm_set_enabled(slice_num, true);  }
-static inline void pwm_off(void) { pwm_set_enabled(slice_num, false); }
-
 static inline void mark(uint32_t usec) {
-    pwm_on();
+    pwm_set_enabled(slice_num, true);
     sleep_us(usec);
-    pwm_off();
+    pwm_set_enabled(slice_num, false);
 }
 
 static inline void space(uint32_t usec) {
-    pwm_off();
+    pwm_set_enabled(slice_num, false);
     sleep_us(usec);
 }
 
 // -----------------------------------------------------------------------------
-// Send one NEC frame: address, command, complements (32 bits total)
+// Send one 8-bit value using our simple protocol
 // -----------------------------------------------------------------------------
-void ir_send_nec(uint8_t addr, uint8_t cmd) {
-    uint32_t frame = (uint32_t)addr |
-                     ((uint32_t)(~addr) << 8) |
-                     ((uint32_t)cmd << 16) |
-                     ((uint32_t)(~cmd) << 24);
+void ir_send_simple(uint8_t data) {
+    // Header
+    mark(SIMPLE_HDR_MARK);
+    space(SIMPLE_HDR_SPACE);
 
-    // Header burst
-    mark(NEC_HDR_MARK);
-    space(NEC_HDR_SPACE);
-
-    // 32 data bits, LSB first
-    for (int i = 0; i < 32; i++) {
-        mark(NEC_BIT_MARK);
-        if (frame & 1)
-            space(NEC_ONE_SPACE);
+    // 8 data bits, LSB first
+    for (int i = 0; i < 8; i++) {
+        mark(SIMPLE_BIT_MARK);
+        if (data & 1)
+            space(SIMPLE_ONE_SPACE);
         else
-            space(NEC_ZERO_SPACE);
-        frame >>= 1;
+            space(SIMPLE_ZERO_SPACE);
+        data >>= 1;
     }
-
-    // Stop bit
-    mark(NEC_STOP_MARK);
-    pwm_off();
+    // Final stop pulse
+    mark(SIMPLE_BIT_MARK);
 }
 
-// -----------------------------------------------------------------------------
-// Example main loop
-// -----------------------------------------------------------------------------
 int main(void) {
     stdio_init_all();
-    printf("Starting IR transmitter (38 kHz NEC)...\n");
-
+    printf("Starting Simple IR Transmitter...\n");
     ir_pwm_init();
-
-    uint8_t address = 0x00;
-    uint8_t command = 0x34;
+    uint8_t data_to_send = 123;
 
     while (true) {
-        printf("Sending NEC frame: addr=0x%02X cmd=0x%02X\n", address, command);
-        ir_send_nec(address, command);
-        sleep_ms(1000);   // 1 s between sends
+        printf("Sending data: %d\n", data_to_send);
+        ir_send_simple(data_to_send);
+        sleep_ms(1000);
     }
-
     return 0;
 }
