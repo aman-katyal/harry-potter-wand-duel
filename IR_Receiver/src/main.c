@@ -4,54 +4,40 @@
 #include "hardware/irq.h"
 
 const uint IR_PIN = 17;
-
-#define MAX_TIMINGS 40 // A message is only ~18 timings, 40 is safe
-#define END_OF_MESSAGE_THRESHOLD 5000 // 5ms gap ends a message
-
-// ----- Simple Protocol Timings (microseconds) with wide tolerance -----
-#define HDR_MARK_MIN   1500
-#define HDR_MARK_MAX   2500
-#define ONE_SPACE_MIN   750 // Anything over 750us is a '1'
-#define ZERO_SPACE_MAX  750 // Anything under 750us is a '0'
-
+#define MAX_RAW_TIMINGS 250
+#define MAX_CLEAN_TIMINGS 100
+#define END_OF_MESSAGE_THRESHOLD 10000
 #define CARRIER_TIMEOUT_US 45 
+#define CLEANING_THRESHOLD_US 30
 
 enum ir_state { STATE_SPACE, STATE_MARK };
-
 volatile absolute_time_t last_pulse_time;
-uint32_t ir_timings[MAX_TIMINGS];
-uint8_t timing_index = 0;
+uint32_t raw_timings[MAX_RAW_TIMINGS];
+uint8_t raw_timing_index = 0;
 volatile bool message_ready = false;
 
 void gpio_callback(uint gpio, uint32_t events) {
     if (gpio == IR_PIN) last_pulse_time = get_absolute_time();
 }
 
-bool decode_simple(uint8_t *data) {
-    // A message is a header + 8 bits = 1 mark + 1 space + 8*(mark+space) = 18 timings
-    if (timing_index < 18) return false;
-
-    // Check for the unique long header pulse
-    if (ir_timings[0] < HDR_MARK_MIN || ir_timings[0] > HDR_MARK_MAX) return false;
-
-    uint8_t received_value = 0;
-    for (int i = 0; i < 8; i++) {
-        // We only care about the SPACE after each bit's MARK pulse
-        uint32_t bit_space = ir_timings[3 + (i * 2)];
-
-        if (bit_space > ONE_SPACE_MIN) {
-            received_value |= (1 << i); // It's a '1'
+int clean_timings(const uint32_t* raw, int raw_count, uint32_t* cleaned) {
+    int clean_count = 0;
+    uint32_t accumulator = 0;
+    for (int i = 1; i < raw_count; i++) {
+        accumulator += raw[i];
+        if (raw[i] > CLEANING_THRESHOLD_US) {
+            if (clean_count < MAX_CLEAN_TIMINGS) cleaned[clean_count++] = accumulator;
+            accumulator = 0;
         }
-        // If it's a short space, it's a '0', so we do nothing
     }
-    *data = received_value;
-    return true;
+    return clean_count;
 }
 
 int main() {
     stdio_init_all();
     sleep_ms(2000);
-    printf("Simple IR Receiver Ready...\n");
+    printf("Pico IR Raw Code Cloner\n");
+    printf("Point your ORIGINAL remote at the sensor and tap a button.\n\n");
 
     gpio_init(IR_PIN);
     gpio_set_dir(IR_PIN, GPIO_IN);
@@ -69,25 +55,33 @@ int main() {
 
         if (new_state != current_state) {
             uint32_t duration = absolute_time_diff_us(last_state_change_time, now);
-            if (timing_index < MAX_TIMINGS) ir_timings[timing_index++] = duration;
+            if (raw_timing_index < MAX_RAW_TIMINGS) raw_timings[raw_timing_index++] = duration;
             current_state = new_state;
             last_state_change_time = now;
         }
         
-        if (current_state == STATE_SPACE && timing_index > 0 && !message_ready) {
+        if (current_state == STATE_SPACE && raw_timing_index > 0 && !message_ready) {
             if (absolute_time_diff_us(last_state_change_time, now) > END_OF_MESSAGE_THRESHOLD) {
                 message_ready = true;
             }
         }
         
         if (message_ready) {
-            uint8_t received_data;
-            if (decode_simple(&received_data)) {
-                printf("Received data: %d\n", received_data);
-            } else {
-                printf("Failed to decode signal.\n");
+            uint32_t cleaned_data[MAX_CLEAN_TIMINGS];
+            int cleaned_count = clean_timings(raw_timings, raw_timing_index, cleaned_data);
+
+            // --- FORMAT THE OUTPUT FOR PASTING ---
+            printf("\n--- Copy the following lines into the transmitter code ---\n\n");
+            printf("#define RAW_DATA_LEN %d\n", cleaned_count + 1); // +1 for trailing space
+            printf("uint16_t rawData[RAW_DATA_LEN]={\n\t");
+            for(int i=0; i < cleaned_count; i++) {
+              printf("%u, ", cleaned_data[i]);
+              if( (i > 0) && ((i+1) % 8)==0) printf("\n\t");
             }
-            timing_index = 0;
+            printf("1000};\n"); // Add arbitrary trailing space like the example
+            printf("\n--- End of data ---\n\n");
+
+            raw_timing_index = 0;
             message_ready = false;
         }
     }
