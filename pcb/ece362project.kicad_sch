@@ -1,0 +1,308 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "968afccf-5679-4319-8b9b-7f0dcdfc2d51")
+	(paper "A4")
+	(lib_symbols)
+	(sheet
+		(at 209.55 68.58)
+		(size 49.53 35.56)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "146d2e32-3972-440e-85d4-89945a781fb0")
+		(property "Sheetname" "IMU"
+			(at 209.55 67.8684 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "IMU.kicad_sch"
+			(at 209.55 104.7246 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "ece362project"
+				(path "/968afccf-5679-4319-8b9b-7f0dcdfc2d51"
+					(page "6")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 26.67 121.92)
+		(size 45.72 36.83)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "3c55d0b7-1907-4619-ba28-5804f7a9081e")
+		(property "Sheetname" "haptics"
+			(at 26.67 121.2084 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "haptics.kicad_sch"
+			(at 26.67 159.3346 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "ece362project"
+				(path "/968afccf-5679-4319-8b9b-7f0dcdfc2d51"
+					(page "4")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 26.67 73.66)
+		(size 44.45 36.83)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "460e9d93-98be-4b69-8dc4-e8616adacd4d")
+		(property "Sheetname" "emitter"
+			(at 26.67 72.9484 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "emitter.kicad_sch"
+			(at 26.67 111.0746 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "ece362project"
+				(path "/968afccf-5679-4319-8b9b-7f0dcdfc2d51"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 209.55 116.84)
+		(size 49.53 36.83)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "523db4e9-e07b-4d9f-b8a9-ed0bacbe9ee1")
+		(property "Sheetname" "LCD_Matrix"
+			(at 209.55 116.1284 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "LCD_Matrix.kicad_sch"
+			(at 209.55 154.2546 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "ece362project"
+				(path "/968afccf-5679-4319-8b9b-7f0dcdfc2d51"
+					(page "7")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 93.98 72.39)
+		(size 74.93 49.53)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "664ba799-efaf-44d8-a347-8ef17f5fa1e8")
+		(property "Sheetname" "proton"
+			(at 93.98 71.6784 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "proton.kicad_sch"
+			(at 93.98 122.5046 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "ece362project"
+				(path "/968afccf-5679-4319-8b9b-7f0dcdfc2d51"
+					(page "8")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 209.55 26.67)
+		(size 48.26 27.94)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "e99761eb-5436-449e-8c20-48ea540a16f3")
+		(property "Sheetname" "power"
+			(at 209.55 25.9584 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "power.kicad_sch"
+			(at 209.55 55.1946 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "ece362project"
+				(path "/968afccf-5679-4319-8b9b-7f0dcdfc2d51"
+					(page "5")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 26.67 31.75)
+		(size 44.45 27.94)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "f4b47497-6327-40d2-99e3-016811de5cc9")
+		(property "Sheetname" "receiver"
+			(at 26.67 31.0384 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "receiver.kicad_sch"
+			(at 26.67 60.2746 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "ece362project"
+				(path "/968afccf-5679-4319-8b9b-7f0dcdfc2d51"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)
