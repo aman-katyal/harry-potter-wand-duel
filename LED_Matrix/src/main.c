@@ -3,6 +3,8 @@
 #include "hardware/dma.h"
 #include "ws2812.pio.h"
 #include "math.h"
+#include "stdlib.h"
+#include <time.h>
 
 #define LED_PIN 17
 #define NUM_LEDS 256
@@ -26,6 +28,81 @@ void setup_dma() {
     dma_channel_configure(DMA_CHANNEL, &c, &pio->txf[sm], led_buffer, NUM_LEDS, false);
 }
 
+int health_leds = 16; // full width
+int health = 16;      // start full health
+
+void draw_health_bar(int width, int height) {
+    for (int x = 0; x < width; x++) {
+        int top_index = (0 % 2 == 0)
+            ? 0 * width + x
+            : 0 * width + (width - 1 - x);
+        int bottom_index = (1 % 2 == 0)
+            ? 1 * width + x
+            : 1 * width + (width - 1 - x);
+
+        if (x < health) {
+            set_led_color(top_index, 255, 0, 0);
+            set_led_color(bottom_index, 255, 0, 0);
+        } else {
+            set_led_color(top_index, 0, 0, 0);
+            set_led_color(bottom_index, 0, 0, 0);
+        }
+    }
+}
+
+void show_loser_screen(int width, int height) {
+
+    for (int i = 0; i < NUM_LEDS; i++)
+        led_buffer[i] = 0;
+
+    int pattern[16][16] = {0};
+
+    pattern[5][3] = 1;
+    pattern[5][4] = 1; 
+    pattern[6][2] = 1;
+    pattern[6][5] = 1;
+    pattern[4][2] = 1;
+    pattern[4][5] = 1;
+    pattern[7][1] = 1;
+    pattern[7][6] = 1;
+    pattern[3][1] = 1;
+    pattern[3][6] = 1;
+
+    pattern[5][10] = 1;
+    pattern[5][11] = 1;
+    pattern[6][9]  = 1;
+    pattern[6][12] = 1;
+    pattern[4][9]  = 1;
+    pattern[4][12] = 1;
+    pattern[7][8]  = 1;
+    pattern[7][13] = 1;
+    pattern[3][8] = 1;
+    pattern[3][13] = 1;
+
+    pattern[12][4] = 1;
+    pattern[12][5] = 1;
+    pattern[12][6] = 1;
+    pattern[12][9] = 1;
+    pattern[12][10] = 1;
+    pattern[12][11] = 1;
+    pattern[12][7] = 1;
+    pattern[12][8] = 1;
+
+    for (int y = 0; y < 16; y++) {
+        for (int x = 0; x < 16; x++) {
+            if (pattern[y][x]) {
+                int index = (y % 2 == 0)
+                    ? y * width + x
+                    : y * width + (width - 1 - x);
+                set_led_color(index, 255, 0, 0);
+            }
+        }
+    }
+
+    update_leds();
+}
+
+
 void set_led_color(int index, uint8_t r, uint8_t g, uint8_t b) {
     if (index < NUM_LEDS) {
         led_buffer[index] = ((uint32_t)r << 16) | ((uint32_t)b << 8) | g;
@@ -39,9 +116,6 @@ void update_leds() {
 
 
 // FIREWORK 
-
-#include <math.h>
-#include <stdlib.h>
 
 int main() {
     stdio_init_all();
@@ -68,6 +142,9 @@ int main() {
         for (int i = 0; i < spikes; i++)
             ray_brightness[i] = 0.7f + (rand() % 30) / 100.0f;
     }
+
+    srand(time(NULL));
+
     randomize_brightness();
 
     while (true) {
@@ -151,6 +228,43 @@ int main() {
             }
         }
 
+        draw_health_bar(WIDTH, HEIGHT);
+
+        static int frame_counter = 0;
+        frame_counter++;
+        if (frame_counter > 50) {
+            frame_counter = 0;
+
+            int rand_num = rand() % 11; 
+            health -= rand_num;
+            if (health > 0) {
+                int rand_num = rand() % 6;
+                int columns_to_remove = rand_num * 2;
+                health -= columns_to_remove;
+                if (health < 0) health = 0;
+        } else {
+            // --- Show LOSER screen ---
+            show_loser_screen(WIDTH, HEIGHT);
+
+            // Flash it a few times
+            for (int i = 0; i < 3; i++) {
+                sleep_ms(500);
+                // toggle off
+                for (int j = 0; j < NUM_LEDS; j++) led_buffer[j] = 0;
+                update_leds();
+                sleep_ms(300);
+                show_loser_screen(WIDTH, HEIGHT);
+            }
+
+            // Refill health
+            sleep_ms(1000);
+            health = 16;
+        }
+
+        }
+
+        srand(time(NULL));
+
         update_leds();
         sleep_ms(40);
 
@@ -172,7 +286,11 @@ int main() {
 }
 
 
-// Circle 
+
+
+
+
+// Circle explosion
 
 // #include <math.h>
 // #include <stdlib.h>
