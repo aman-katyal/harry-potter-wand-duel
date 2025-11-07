@@ -1,75 +1,96 @@
-#include <stdio.h>
+
+
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
+#include <stdio.h>
+#include <stdint.h>
 
-// -----------------------------------------------------------------------------
-// Simple IR Protocol Constants (microseconds)
-// -----------------------------------------------------------------------------
-#define SIMPLE_HDR_MARK   2000  // Long start pulse
-#define SIMPLE_HDR_SPACE  1000  // Space after start pulse
-#define SIMPLE_BIT_MARK    500  // The pulse for every bit
-#define SIMPLE_ONE_SPACE  1000  // The space for a '1'
-#define SIMPLE_ZERO_SPACE  500  // The space for a '0'
+#define TX_PIN 36  // IR LED pin (PWM slice 10A)
 
-// -----------------------------------------------------------------------------
-// PWM configuration for 38 kHz IR carrier
-// -----------------------------------------------------------------------------
-#define IR_GPIO    36        // The pin your emitter is on
-#define PWM_FREQ   38000     // 38 kHz carrier
+// === NEC Timing (microseconds) ===
+#define NEC_UNIT       560
+#define NEC_HDR_MARK   (16 * NEC_UNIT)
+#define NEC_HDR_SPACE  (8  * NEC_UNIT)
+#define NEC_BIT_MARK   NEC_UNIT
+#define NEC_ONE_SPACE  (3 * NEC_UNIT)
+#define NEC_ZERO_SPACE NEC_UNIT
+#define NEC_STOP_BIT   NEC_UNIT
+#define NEC_GAP_MS     110
 
-static uint slice_num;
+// --- simple helpers ---
+static inline void pwm_on(uint slice)  { pwm_set_enabled(slice, true); }
+static inline void pwm_off(uint slice) { pwm_set_enabled(slice, false); }
 
-void ir_pwm_init(void) {
-    gpio_set_function(IR_GPIO, GPIO_FUNC_PWM);
-    slice_num = pwm_gpio_to_slice_num(IR_GPIO);
-    uint32_t top = (uint32_t)(125000000 / PWM_FREQ) - 1;
-    pwm_set_wrap(slice_num, top);
-    pwm_set_chan_level(slice_num, PWM_CHAN_A, (uint32_t)(0.33f * top));
-    pwm_set_enabled(slice_num, false);
-}
-
-static inline void mark(uint32_t usec) {
-    pwm_set_enabled(slice_num, true);
+void mark(uint slice, uint32_t usec) {
+    pwm_on(slice);
     sleep_us(usec);
-    pwm_set_enabled(slice_num, false);
+    pwm_off(slice);
 }
 
-static inline void space(uint32_t usec) {
-    pwm_set_enabled(slice_num, false);
-    sleep_us(usec);
+void space(uint slice, uint32_t usec) {
+    pwm_off(slice);  // ✅ fixed — correct argument
+    if (usec) sleep_us(usec);
 }
 
-// -----------------------------------------------------------------------------
-// Send one 8-bit value using our simple protocol
-// -----------------------------------------------------------------------------
-void ir_send_simple(uint8_t data) {
-    // Header
-    mark(SIMPLE_HDR_MARK);
-    space(SIMPLE_HDR_SPACE);
+// === Build 32-bit NEC frame ===
+uint32_t nec_build(uint8_t addr, uint8_t cmd) {
+    uint32_t data = 0;
+    data  = addr;
+    data |= ((uint32_t)(~addr) & 0xFF) << 8;
+    data |= ((uint32_t)cmd & 0xFF) << 16;
+    data |= ((uint32_t)(~cmd) & 0xFF) << 24;
+    return data;
+}
 
-    // 8 data bits, LSB first
-    for (int i = 0; i < 8; i++) {
-        mark(SIMPLE_BIT_MARK);
-        if (data & 1)
-            space(SIMPLE_ONE_SPACE);
+// === Transmit NEC packet ===
+void nec_send(uint slice, uint8_t addr, uint8_t cmd) {
+    uint32_t frame = nec_build(addr, cmd);
+
+    mark(slice, NEC_HDR_MARK);
+    space(slice, NEC_HDR_SPACE);
+
+    for (int i = 0; i < 32; i++) {
+        mark(slice, NEC_BIT_MARK);
+        if (frame & (1u << i))
+            space(slice, NEC_ONE_SPACE);
         else
-            space(SIMPLE_ZERO_SPACE);
-        data >>= 1;
+            space(slice, NEC_ZERO_SPACE);
     }
-    // Final stop pulse
-    mark(SIMPLE_BIT_MARK);
+
+    mark(slice, NEC_STOP_BIT);
+    space(slice, 0);
 }
 
-int main(void) {
+int main() {
     stdio_init_all();
-    printf("Starting Simple IR Transmitter...\n");
-    ir_pwm_init();
-    uint8_t data_to_send = 123;
+    sleep_ms(3000);  // allow USB serial to come up
+
+    printf("\n=== RP2350 NEC IR Transmitter ===\n");
+
+    // PWM setup for 38kHz carrier
+    gpio_set_function(TX_PIN, GPIO_FUNC_PWM);
+    uint slice = pwm_gpio_to_slice_num(TX_PIN);
+    float div = 125000000.0f / (38000.0f * 64.0f);
+    pwm_set_clkdiv(slice, div);
+    pwm_set_wrap(slice, 63);
+    pwm_set_chan_level(slice, PWM_CHAN_A, 21); // ~33% duty
+    pwm_set_enabled(slice, false);
+
+    printf("PWM slice=%u, div=%.3f (≈38kHz)\n\n", slice, div);
+
+    uint8_t addr = 1;
+    uint8_t cmd = 1;
 
     while (true) {
-        printf("Sending data: %d\n", data_to_send);
-        ir_send_simple(data_to_send);
-        sleep_ms(1000);
+        printf("Sending NEC packet: addr=%d, cmd=%d\n", addr, cmd);
+        nec_send(slice, addr, cmd);
+
+        // Cycle addr 1–4, cmd 1–4
+        addr++;
+        cmd++;
+        if (addr > 4) addr = 1;
+        if (cmd > 4) cmd = 1;
+
+        sleep_ms(NEC_GAP_MS);
     }
-    return 0;
 }
