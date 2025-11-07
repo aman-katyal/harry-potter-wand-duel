@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 0)
+  (lib (name "IR STEMMA LED Emitter-eagle-import")(type "KiCad")(uri "${KIPRJMOD}/IR STEMMA LED Emitter-eagle-import.kicad_sym")(options "")(descr ""))
+)
