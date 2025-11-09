@@ -138,6 +138,10 @@ bool ir_receiver_decode(ir_decoded_data_t *decoded_data) {
         decoded_data->flags = IRDATA_FLAGS_WAS_OVERFLOW;
     }
 
+    if (params_copy.overflow) {
+        decoded_data->flags = IRDATA_FLAGS_WAS_OVERFLOW;
+    }
+
     // --- Pass to NEC decoder ---
     if (decode_nec_protocol(decoded_data, &params_copy)) {
         // Success
@@ -145,8 +149,9 @@ bool ir_receiver_decode(ir_decoded_data_t *decoded_data) {
         // Failed to decode as NEC
         decoded_data->protocol = IR_PROTOCOL_UNKNOWN;
     }
-    
-    // User must call ir_receiver_resume() to start next capture
+
+    ir_receiver_resume();
+
     return true;
 }
 // in ir_rp_hal.c
