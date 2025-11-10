@@ -15,15 +15,16 @@
 // Pin 15 is used based on the PinDefinitionsAndMore.h context.
 #define IR_RECEIVE_GPIO_PIN 15
 
-int main() {
-    // Initialize standard IO (for printf)
-    stdio_init_all();
+// In main.c
 
-    // Wait a few seconds for the serial monitor to connect
-    sleep_ms(3000);
+int main() {
+    stdio_init_all();
+    
+    // This sleep is only for waiting on a serial monitor.
+    // In a larger project, you would remove it.
+    // sleep_ms(3000); 
     printf("--- Pico NEC IR Receiver ---\n");
 
-    // Initialize the IR receiver library
     ir_receiver_init(IR_RECEIVE_GPIO_PIN);
     printf("IR Receiver initialized on GPIO %d\n", IR_RECEIVE_GPIO_PIN);
 
@@ -31,38 +32,34 @@ int main() {
 
     // Main application loop
     while (true) {
-        // Check if the receiver has a complete frame to decode
+        
+        // --- This is now your high-level, non-blocking function ---
+        // It's very fast and just checks a flag.
         if (ir_receiver_decode(&decoded_data)) {
 
-            // A decode attempt was made. Check the results.
+            // A frame was successfully decoded and the receiver is
+            // already listening for the next one.
+            
             if (decoded_data.protocol == IR_PROTOCOL_NEC) {
-                
-                // --- Print the decoded data ---
                 printf("NEC Frame Received:\n");
                 printf("  Address: 0x%04X\n", decoded_data.address);
                 printf("  Command: 0x%04X\n", decoded_data.command);
-
-                if (decoded_data.flags & IRDATA_FLAGS_IS_REPEAT) {
-                    printf("  Type:    REPEAT\n");
-                } else {
-                    printf("  Type:    Frame\n");
-                }
-
-            } else if (decoded_data.flags & IRDATA_FLAGS_WAS_OVERFLOW) {
-                printf("Warning: IR buffer overflow. Frame discarded.\n");
+                // ... etc ...
             } else {
-                printf("Received unknown protocol or noise. Frame discarded.\n");
+                // ... handle overflow or unknown protocol ...
             }
 
-            // --- IMPORTANT ---
-            // We must call resume() to tell the receiver to start
-            // listening for the next frame.
-            ir_receiver_resume();
+            // --- NO MORE ir_receiver_resume() NEEDED ---
         
-        } else {
-            // No frame ready for decoding.
-            // We can do other work here.
-            sleep_ms(10); // Don't burn CPU cycles
-        }
+        } 
+        
+        // --- NO MORE 'else' BLOCK OR sleep_ms(10) NEEDED ---
+        
+        // --- DO OTHER WORK HERE ---
+        // Your larger project's code can run here without
+        // being blocked.
+        // e.g., update_display();
+        //       check_network_packets();
+        //       read_other_sensors();
     }
 }
