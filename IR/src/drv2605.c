@@ -77,8 +77,10 @@ bool drv2605_is_playing(drv2605_t *drv) {
 
 // Quick presets for wand effects
 void drv2605_play_cast_feedback(drv2605_t *drv) {
-    drv2605_set_waveform(drv, 0, 1);   // Sharp click
-    drv2605_set_waveform(drv, 1, 0);   // End
+    drv2605_set_waveform(drv, 0, 14);  // Strong Click 1
+    drv2605_set_waveform(drv, 1, 14);  // Strong Click 2
+    drv2605_set_waveform(drv, 2, 14);  // Strong Click 3
+    drv2605_set_waveform(drv, 3, 0);   // End
     drv2605_go(drv);
 }
 
