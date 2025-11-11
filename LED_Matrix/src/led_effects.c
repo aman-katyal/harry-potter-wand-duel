@@ -1,3 +1,4 @@
+#define _USE_MATH_DEFINES
 #include <math.h> // For the sine wave in the breathing effect
 #include "led_effects.h"
 #include "ws2812.h"

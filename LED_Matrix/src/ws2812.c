@@ -56,3 +56,8 @@ void ws2812_clear() {
     ws2812_fill(0, 0, 0); // Fill buffer with black
     ws2812_update();      // Push the cleared buffer to the LEDs
 }
+
+uint32_t* ws2812_get_buffer() {
+    extern uint32_t led_buffer[];  // same buffer already declared at top of ws2812.c
+    return led_buffer;
+}
