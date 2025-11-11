@@ -37,6 +37,13 @@ void drv2605_set_waveform(drv2605_t *drv, uint8_t slot, uint8_t w);
 void drv2605_select_library(drv2605_t *drv, uint8_t lib);
 void drv2605_go(drv2605_t *drv);
 void drv2605_set_mode(drv2605_t *drv, uint8_t mode);
-void drv2605_set_realtime_value(drv2605_t *drv, uint8_t rtp); // ADD THIS
+void drv2605_set_realtime_value(drv2605_t *drv, uint8_t rtp);
+
+// Non-blocking status check
+bool drv2605_is_playing(drv2605_t *drv);
+
+// Quick haptic presets for wand actions
+void drv2605_play_cast_feedback(drv2605_t *drv);    // Light buzz for casting
+void drv2605_play_hit_feedback(drv2605_t *drv);     // Strong pulse for being hit
 
 #endif // DRV2605_H
