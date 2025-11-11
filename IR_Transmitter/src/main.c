@@ -1,75 +1,33 @@
+
 #include <stdio.h>
 #include "pico/stdlib.h"
-#include "hardware/pwm.h"
+#include "ir_emitter.h"
 
-// -----------------------------------------------------------------------------
-// Simple IR Protocol Constants (microseconds)
-// -----------------------------------------------------------------------------
-#define SIMPLE_HDR_MARK   2000  // Long start pulse
-#define SIMPLE_HDR_SPACE  1000  // Space after start pulse
-#define SIMPLE_BIT_MARK    500  // The pulse for every bit
-#define SIMPLE_ONE_SPACE  1000  // The space for a '1'
-#define SIMPLE_ZERO_SPACE  500  // The space for a '0'
+#define TX_PIN 36
 
-// -----------------------------------------------------------------------------
-// PWM configuration for 38 kHz IR carrier
-// -----------------------------------------------------------------------------
-#define IR_GPIO    36        // The pin your emitter is on
-#define PWM_FREQ   38000     // 38 kHz carrier
-
-static uint slice_num;
-
-void ir_pwm_init(void) {
-    gpio_set_function(IR_GPIO, GPIO_FUNC_PWM);
-    slice_num = pwm_gpio_to_slice_num(IR_GPIO);
-    uint32_t top = (uint32_t)(125000000 / PWM_FREQ) - 1;
-    pwm_set_wrap(slice_num, top);
-    pwm_set_chan_level(slice_num, PWM_CHAN_A, (uint32_t)(0.33f * top));
-    pwm_set_enabled(slice_num, false);
-}
-
-static inline void mark(uint32_t usec) {
-    pwm_set_enabled(slice_num, true);
-    sleep_us(usec);
-    pwm_set_enabled(slice_num, false);
-}
-
-static inline void space(uint32_t usec) {
-    pwm_set_enabled(slice_num, false);
-    sleep_us(usec);
-}
-
-// -----------------------------------------------------------------------------
-// Send one 8-bit value using our simple protocol
-// -----------------------------------------------------------------------------
-void ir_send_simple(uint8_t data) {
-    // Header
-    mark(SIMPLE_HDR_MARK);
-    space(SIMPLE_HDR_SPACE);
-
-    // 8 data bits, LSB first
-    for (int i = 0; i < 8; i++) {
-        mark(SIMPLE_BIT_MARK);
-        if (data & 1)
-            space(SIMPLE_ONE_SPACE);
-        else
-            space(SIMPLE_ZERO_SPACE);
-        data >>= 1;
-    }
-    // Final stop pulse
-    mark(SIMPLE_BIT_MARK);
-}
-
-int main(void) {
+int main() {
     stdio_init_all();
-    printf("Starting Simple IR Transmitter...\n");
-    ir_pwm_init();
-    uint8_t data_to_send = 123;
+    sleep_ms(3000);
+    
+    printf("\n=== RP2350 NEC IR Transmitter ===\n");
+    
+    ir_emitter_init(TX_PIN);
+    
+    // Send addr=1, cmd=2, repeat 5 times
+    ir_emitter_start(1, 2, 5);
+    bool finished_printing = false;
 
     while (true) {
-        printf("Sending data: %d\n", data_to_send);
-        ir_send_simple(data_to_send);
-        sleep_ms(1000);
+        ir_emitter_update();
+        
+        // Check if done and stop sequence
+        if (ir_emitter_done() && !finished_printing) {
+           // sleep_ms(1000); // Wait between sequences
+           // ir_emitter_start(3, 4, 3); // Send different packet
+           printf("Transmit successful!");
+           finished_printing = true;
+        }
+        
+        sleep_ms(1);
     }
-    return 0;
 }

@@ -1,0 +1,22 @@
+.program ir_tx
+.side_set 1 opt
+
+; Each FIFO word = {mark_us, space_us} (16 bits each)
+; During mark_us, output 38 kHz bursts
+; During space_us, keep pin low
+
+pull block
+out x, 16       ; mark_us
+out y, 16       ; space_us
+
+mark_loop:
+    set pins, 1 [1]
+    nop [6]
+    set pins, 0 [1]
+    nop [6]
+    jmp x-- mark_loop
+
+space_loop:
+    set pins, 0
+    jmp y-- space_loop
+jmp 0

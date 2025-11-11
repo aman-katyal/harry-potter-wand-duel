@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../../IR"
+		},
+		{
+			"name": "IR_Transmitter",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}

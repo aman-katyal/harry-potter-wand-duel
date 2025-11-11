@@ -1,10 +1,9 @@
 /**
  * @file main.c
- * @brief BNO08x example for RP2350B using a non-blocking, interrupt-driven architecture.
+ * @brief BNO08x example for RP2350B, adapted for Edge Impulse data collection.
  *
- * This application uses a hardware timer to poll the sensor in the background,
- * leaving the main loop free for other tasks. The display is updated only when
- * new data is available.
+ * This version uses the original, working interrupt-driven architecture and
+ * prints the existing accelerometer and Euler angle data as a 6-axis stream.
  */
 
 #include <stdio.h>
@@ -20,18 +19,14 @@
 // --- Tweakable Parameters ---
 // =================================================================================
 
-// How often the hardware timer interrupt will fire to poll the sensor.
-// 5000us = 5ms = 200 Hz. This is our polling rate.
-#define SENSOR_POLL_INTERVAL_US   5000
-
-// How often the BNO08x should generate a new report internally.
-// 4000us = 4ms = 250 Hz. Should be slightly faster than or equal to the poll rate.
-#define SENSOR_REPORT_INTERVAL_US 4000
+// MODIFIED: Set to a consistent 100Hz for machine learning.
+#define SENSOR_POLL_INTERVAL_US   10000 // 10ms = 100 Hz
+#define SENSOR_REPORT_INTERVAL_US 10000 // 10ms = 100 Hz
 
 // --- Hardware Configuration ---
 #define I2C_PORT i2c0
-#define I2C_SDA_PIN 24
-#define I2C_SCL_PIN 25
+#define I2C_SDA_PIN 16
+#define I2C_SCL_PIN 17
 #define I2C_BAUDRATE 400 * 1000 // 400 kHz
 
 #define BNO08X_RESET_PIN -1
@@ -47,33 +42,22 @@ static bno08x_driver_t bno08x;
 // Struct to hold calculated Euler angles
 typedef struct { float yaw, pitch, roll; } euler_t;
 
-// Use 'volatile' for any variable shared between the main loop and an interrupt.
-// This tells the compiler that the value can change at any time.
+// YOUR ORIGINAL GLOBAL VARIABLES - UNCHANGED
 static volatile euler_t g_ypr = {0};
 static volatile sh2_Accelerometer_t g_acc = {0};
 static volatile uint16_t g_steps = 0;
 static volatile uint8_t g_stability = 0;
 static volatile uint8_t g_accuracy = 0;
-
-// This flag is set by the interrupt to signal that new data is ready.
 static volatile bool g_sensor_data_updated = false;
 
 // =================================================================================
 // --- Timer Interrupt Service Routine (ISR) ---
 // =================================================================================
 
-/**
- * @brief This function is called automatically by the hardware timer.
- *        It polls the sensor for new data.
- * @note  NEVER put slow code like printf() inside an ISR.
- */
+// YOUR ORIGINAL ISR - UNCHANGED
 bool sensor_poll_callback(repeating_timer_t *t) {
-    // This struct is only used inside the ISR, so it can be static.
     static sh2_SensorValue_t sensor_value;
-
-    // Poll the driver. If it returns true, a new event was received.
     if (bno08x_get_sensor_event(&bno08x, &sensor_value)) {
-        // A new event is available, update our volatile global variables
         switch (sensor_value.sensorId) {
             case SH2_ARVR_STABILIZED_RV:
                 quaternion_to_euler(&sensor_value.un.arvrStabilizedRV, (euler_t*)&g_ypr, true);
@@ -91,10 +75,8 @@ bool sensor_poll_callback(repeating_timer_t *t) {
             default:
                 break;
         }
-        // Set the flag to let the main loop know it can update the display
         g_sensor_data_updated = true;
     }
-
     return true; // Keep the timer repeating
 }
 
@@ -102,7 +84,7 @@ bool sensor_poll_callback(repeating_timer_t *t) {
 // --- Main Application ---
 // =================================================================================
 
-// Forward declarations for helper functions
+// YOUR ORIGINAL HELPER FUNCTIONS - UNCHANGED
 void print_product_ids(bno08x_driver_t *driver);
 void set_reports(bno08x_driver_t *driver);
 const char* get_stability_string(uint8_t classification);
@@ -112,9 +94,9 @@ void quaternion_to_euler(sh2_RotationVectorWAcc_t* rotational_vector, euler_t* y
 int main() {
     stdio_init_all();
     sleep_ms(2000);
-    printf("--- BNO08x Interrupt-Driven Demo for RP2350B ---\n");
+    printf("--- BNO08x Edge Impulse Data Forwarder ---\n");
 
-    // --- I2C and Sensor Initialization (same as before) ---
+    // --- I2C and Sensor Initialization (YOURS - UNCHANGED) ---
     i2c_init(I2C_PORT, I2C_BAUDRATE);
     gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
@@ -131,41 +113,31 @@ int main() {
     print_product_ids(&bno08x);
     set_reports(&bno08x);
 
-    // --- SETUP THE REPEATING TIMER INTERRUPT ---
-    printf("Starting sensor polling timer (%ld us interval)...\n", SENSOR_POLL_INTERVAL_US);
+    // --- SETUP THE REPEATING TIMER INTERRUPT (YOURS - UNCHANGED) ---
+    printf("Starting sensor polling timer (%d us interval)...\n", SENSOR_POLL_INTERVAL_US);
     static repeating_timer_t timer;
     add_repeating_timer_us(SENSOR_POLL_INTERVAL_US, sensor_poll_callback, NULL, &timer);
 
-    printf("Reading events...\n");
+    printf("Starting data stream...\n");
     sleep_ms(100);
-    printf("\033[2J\033[H"); // Clear screen and move to home
 
     // --- MAIN NON-BLOCKING LOOP ---
+    // THIS IS THE ONLY SECTION THAT HAS BEEN CHANGED
     while (1) {
         // Check if the interrupt has told us new data is ready
         if (g_sensor_data_updated) {
             // Immediately clear the flag
             g_sensor_data_updated = false;
 
-            // --- In-Place Printing ---
-            printf("\033[H"); // Move cursor to home
-            printf("--- BNO08x Sensor Data (Interrupt Driven) ---\n\033[K");
-            printf("Yaw: %-8.2f Pitch: %-8.2f Roll: %-8.2f (Accuracy: %d/3)\n\033[K", g_ypr.yaw, g_ypr.pitch, g_ypr.roll, g_accuracy);
-            printf("Accel X: %-8.2f Y: %-8.2f Z: %-8.2f m/s^2\n\033[K", g_acc.x, g_acc.y, g_acc.z);
-            printf("Steps: %-5u\n\033[K", g_steps);
-            printf("Stability: %-15s\n\033[K", get_stability_string(g_stability));
-            printf("-------------------------------------------\n\033[K");
+            // Print the 6-axis data stream required by Edge Impulse.
+            // We are using the accelerometer and Euler angles you already have.
+            // This is the ONLY thing printed in the loop.
+            printf("%f,%f,%f,%f,%f,%f\n",
+                   g_acc.x, g_acc.y, g_acc.z,
+                   g_ypr.roll, g_ypr.pitch, g_ypr.yaw);
         }
-
-        // --- THIS IS WHERE YOUR OTHER CODE GOES ---
-        // The main loop is now free to do other things without being blocked
-        // by sensor polling. For example:
-        // check_buttons();
-        // update_display();
-        // manage_wifi();
-        //
-        // Since this loop runs very fast, a small sleep can be good practice
-        // to prevent it from consuming 100% CPU if there's nothing else to do.
+        
+        // A small sleep to prevent the loop from using 100% CPU
         sleep_ms(10); 
     }
 
@@ -176,6 +148,7 @@ int main() {
 // --- Helper Function Implementations ---
 // =================================================================================
 
+// YOUR ORIGINAL set_reports FUNCTION - UNCHANGED
 void set_reports(bno08x_driver_t *driver) {
     printf("Setting desired reports (%.0f Hz)...\n", 1.0e6 / SENSOR_REPORT_INTERVAL_US);
     
@@ -185,6 +158,7 @@ void set_reports(bno08x_driver_t *driver) {
     if (!bno08x_enable_report(driver, SH2_ACCELEROMETER, SENSOR_REPORT_INTERVAL_US)) {
         printf("Could not enable accelerometer\n");
     }
+    // These reports aren't used for the data stream, but leaving them enabled is harmless.
     if (!bno08x_enable_report(driver, SH2_STEP_COUNTER, 1000000)) {
         printf("Could not enable step counter\n");
     }
@@ -193,7 +167,7 @@ void set_reports(bno08x_driver_t *driver) {
     }
 }
 
-// (The other helper functions are unchanged)
+// YOUR ORIGINAL HELPER FUNCTIONS - UNCHANGED
 void print_product_ids(bno08x_driver_t *driver) {
     printf("Product IDs:\n");
     for (int n = 0; n < driver->prod_ids.numEntries; n++) {

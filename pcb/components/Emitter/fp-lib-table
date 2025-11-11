@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "IR STEMMA LED Emitter")(type "KiCad")(uri "$(KIPRJMOD)/IR STEMMA LED Emitter.pretty")(options "")(descr ""))
+)

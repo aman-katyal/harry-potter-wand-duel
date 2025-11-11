@@ -1,0 +1,31 @@
+.program ir_receiver
+
+; 1 tick = 1us. Timeout for gap detection is 15ms.
+.define public MAX_PULSE_TICKS 15000
+
+.wrap_target
+start:
+    wait 0 pin 0
+    set x, MAX_PULSE_TICKS
+measure_mark:
+    jmp pin, mark_done
+    jmp x--, measure_mark
+    irq 0
+    jmp start
+mark_done:
+    mov isr, MAX_PULSE_TICKS
+    sub isr, x
+    push noblock
+    set x, MAX_PULSE_TICKS
+measure_space:
+    jmp !pin, space_done
+    jmp x--, measure_space
+    ; GAP DETECTION: A space longer than 15ms signals end of frame.
+    irq 0
+    jmp start
+space_done:
+    mov isr, MAX_PULSE_TICKS
+    sub isr, x
+    push noblock
+    jmp measure_mark
+.wrap
