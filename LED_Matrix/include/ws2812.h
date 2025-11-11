@@ -14,4 +14,6 @@ void ws2812_fill(uint8_t r, uint8_t g, uint8_t b); // <-- ADD THIS
 void ws2812_update();
 void ws2812_clear();
 
+uint32_t* ws2812_get_buffer(void);
+
 #endif // WS2812_H
