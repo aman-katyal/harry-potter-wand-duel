@@ -21,7 +21,7 @@
 
 #define FRAME_INTERVAL_US 9000 
 
-void run_firework_animation_with_color(int width, int height, int color_mode, int intensity);
+void firework(int width, int height, int color_mode, int intensity);
 
 #endif
 

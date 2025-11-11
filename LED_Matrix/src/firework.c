@@ -1,18 +1,11 @@
-#include "firework_animation.h"
+#include "firework.h"
 #include "ws2812.h"
 #include "pico/stdlib.h"
 #include <math.h>
 #include <stdlib.h>
 #include "hardware/dma.h"
 
-#include "firework_animation.h"
-#include "ws2812.h"
-#include "pico/stdlib.h"
-#include "hardware/dma.h"
-#include <math.h>
-#include <stdlib.h>
-
-void run_firework_animation_with_color(int width, int height, int color_mode, int intensity) {
+void firework(int width, int height, int color_mode, int intensity) {
     // --- Normalize color_mode to 0–2 range ---
     color_mode = color_mode % 3;
 
