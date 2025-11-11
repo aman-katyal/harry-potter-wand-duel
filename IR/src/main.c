@@ -2,7 +2,7 @@
 #include "pico/stdlib.h"
 #include "ir_emitter.h"
 //#include "ir_receiver_lib/irremote.h"
-# include "../ir_receiver_lib/irremote.h"
+#include "irremote.h"
 
 // Pin definitions
 #define TX_PIN 36  // IR LED for transmitting
