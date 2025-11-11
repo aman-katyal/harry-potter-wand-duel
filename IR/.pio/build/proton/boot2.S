@@ -1,4 +1,4 @@
-// Padded and checksummed version of: /Users/Rhea/Documents/GitHub/harry-potter-wand-duel/IR/.pio/build/proton/boot2.bin
+// Padded and checksummed version of: C:\Users\icesp\Documents\new_362\harry-potter-wand-duel\IR\.pio\build\proton\boot2.bin
 
 .cpu cortex-m0plus
 .thumb
