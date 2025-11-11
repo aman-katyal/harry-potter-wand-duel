@@ -19,10 +19,11 @@ int main() {
     while (true) {
         ir_emitter_update();
         
-        // Check if done and start new sequence
+        // Check if done and stop sequence
         if (ir_emitter_done()) {
-            sleep_ms(1000); // Wait between sequences
-            ir_emitter_start(3, 4, 3); // Send different packet
+           // sleep_ms(1000); // Wait between sequences
+           // ir_emitter_start(3, 4, 3); // Send different packet
+           printf("Transmit successful!");
         }
         
         sleep_ms(1);
