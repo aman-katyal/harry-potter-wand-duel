@@ -15,15 +15,17 @@ int main() {
     
     // Send addr=1, cmd=2, repeat 5 times
     ir_emitter_start(1, 2, 5);
+    bool finished_printing = false;
 
     while (true) {
         ir_emitter_update();
         
         // Check if done and stop sequence
-        if (ir_emitter_done()) {
+        if (ir_emitter_done() && !finished_printing) {
            // sleep_ms(1000); // Wait between sequences
            // ir_emitter_start(3, 4, 3); // Send different packet
            printf("Transmit successful!");
+           finished_printing = true;
         }
         
         sleep_ms(1);
