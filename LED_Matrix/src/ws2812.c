@@ -32,9 +32,8 @@ void ws2812_init() {
 
 void ws2812_set_pixel_color(uint index, uint8_t r, uint8_t g, uint8_t b) {
     if (index < NUM_LEDS) {
-        // WS2812 LEDs require GRB color order.
-        // The 32-bit value is packed as 0x00GGRRBB
-        led_buffer[index] = ((uint32_t)g << 16) | ((uint32_t)r << 8) | b;
+        // KEEP THIS EXACT ORDER (old working setup)
+        led_buffer[index] = ((uint32_t)r << 16) | ((uint32_t)b << 8) | g;
     }
 }
 
