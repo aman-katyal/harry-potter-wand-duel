@@ -8,7 +8,6 @@ static PIO pio = pio0;
 static uint sm = 0;
 static uint32_t led_buffer[NUM_LEDS];
 
-// --- Private Functions ---
 static void setup_pio() {
     uint offset = pio_add_program(pio, &ws2812_program);
     ws2812_program_init(pio, sm, offset, LED_PIN, 800000, false);
@@ -20,11 +19,9 @@ static void setup_dma() {
     channel_config_set_read_increment(&c, true);
     channel_config_set_write_increment(&c, false);
     channel_config_set_dreq(&c, pio_get_dreq(pio, sm, true));
-    // This line will now work because led_buffer is declared above
     dma_channel_configure(DMA_CHANNEL, &c, &pio->txf[sm], led_buffer, NUM_LEDS, false);
 }
 
-// --- Public Functions ---
 void ws2812_init() {
     setup_pio();
     setup_dma();
@@ -32,7 +29,6 @@ void ws2812_init() {
 
 void ws2812_set_pixel_color(uint index, uint8_t r, uint8_t g, uint8_t b) {
     if (index < NUM_LEDS) {
-        // KEEP THIS EXACT ORDER (old working setup)
         led_buffer[index] = ((uint32_t)r << 16) | ((uint32_t)b << 8) | g;
     }
 }
@@ -46,17 +42,15 @@ void ws2812_fill(uint8_t r, uint8_t g, uint8_t b) {
 
 void ws2812_update() {
     dma_channel_set_read_addr(DMA_CHANNEL, led_buffer, true);
-    // Note: For very high-speed animations, you might remove the blocking wait
-    // and instead check dma_channel_is_busy()
     dma_channel_wait_for_finish_blocking(DMA_CHANNEL);
 }
 
 void ws2812_clear() {
-    ws2812_fill(0, 0, 0); // Fill buffer with black
-    ws2812_update();      // Push the cleared buffer to the LEDs
+    ws2812_fill(0, 0, 0);
+    ws2812_update();     
 }
 
 uint32_t* ws2812_get_buffer() {
-    extern uint32_t led_buffer[];  // same buffer already declared at top of ws2812.c
+    extern uint32_t led_buffer[];  
     return led_buffer;
 }

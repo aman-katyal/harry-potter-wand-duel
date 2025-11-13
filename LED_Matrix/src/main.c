@@ -10,8 +10,8 @@ int main() {
     ws2812_init();
 
     while (true) {
-        spiral(WIDTH, HEIGHT, 0, 255); // blue spiral
-        spiral(WIDTH, HEIGHT, 1, 255); // red spiral
-        spiral(WIDTH, HEIGHT, 2, 255); // magenta spiral
+        spiral(WIDTH, HEIGHT, 0, 255); 
+        spiral(WIDTH, HEIGHT, 1, 255); 
+        spiral(WIDTH, HEIGHT, 2, 255); 
     }
 }

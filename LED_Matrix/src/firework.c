@@ -6,7 +6,7 @@
 #include "hardware/dma.h"
 
 void firework(int width, int height, int color_mode, int intensity) {
-    // --- Normalize color_mode to 0–2 range ---
+    
     color_mode = color_mode % 3;
 
     const float cx = (width  - 1) / 2.0f;
@@ -27,7 +27,7 @@ void firework(int width, int height, int color_mode, int intensity) {
         ray_brightness[i] = 0.7f + (rand() % 30) / 100.0f;
 
     for (int frame = 0; frame < 80; frame++) {
-        // --- Fade previous frame ---
+       
         uint32_t* buf = ws2812_get_buffer();
         for (int i = 0; i < NUM_LEDS; ++i) {
             uint32_t color = buf[i];
@@ -40,7 +40,6 @@ void firework(int width, int height, int color_mode, int intensity) {
             buf[i] = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
         }
 
-        // --- Draw radial spikes ---
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 float dx = x - cx, dy = y - cy;
@@ -93,13 +92,13 @@ void firework(int width, int height, int color_mode, int intensity) {
 
                     uint8_t r = 0, g = 0, b = 0;
                     switch (color_mode) {
-                        case 0:  // Blue core
+                        case 0:  
                             b = (uint8_t)(brightness * 120.0f);
                             break;
-                        case 1:  // Red core
+                        case 1:  
                             r = (uint8_t)(brightness * 150.0f);
                             break;
-                        case 2:  // Magenta core
+                        case 2:  
                         default:
                             r = (uint8_t)(brightness * 160.0f);
                             b = (uint8_t)(brightness * 100.0f);
@@ -115,11 +114,11 @@ void firework(int width, int height, int color_mode, int intensity) {
             }
         }
 
-        // --- Send frame to LEDs ---
+      
         dma_channel_set_read_addr(DMA_CHANNEL, (void*)ws2812_get_buffer(), true);
         sleep_us(FRAME_INTERVAL_US);
 
-        // --- Animate ring radius ---
+       
         radius += (expanding ? growth_speed : -growth_speed);
         if (radius >= max_radius) expanding = false;
         if (radius <= 0.5f && !expanding) expanding = true;
