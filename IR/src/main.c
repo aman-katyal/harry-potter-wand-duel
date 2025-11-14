@@ -106,7 +106,7 @@ int main() {
         if (TEST_CAST_SPELL && !spell_cast) {
             printf("Casting spell:\n");
             drv2605_play_cast_feedback(&haptic);  // Light haptic
-            ir_emitter_start(1, 2, 3);
+            ir_emitter_start(2, 1, 4);
             spell_cast = true;
         }
         
