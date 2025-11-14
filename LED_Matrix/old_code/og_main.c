@@ -485,101 +485,101 @@ int main() {
 
 // Circle explosion --------------------------- CIRCLE EXPLSION 
 
-// #include <math.h>
-// #include <stdlib.h>
+    // #include <math.h>
+    // #include <stdlib.h>
 
-// int main() {
-//     stdio_init_all();
-//     setup_pio();
-//     setup_dma();
+    // int main() {
+    //     stdio_init_all();
+    //     setup_pio();
+    //     setup_dma();
 
-//     const int WIDTH = 16;
-//     const int HEIGHT = 16;
-//     const float cx = (WIDTH - 1) / 2.0f;
-//     const float cy = (HEIGHT - 1) / 2.0f;
+    //     const int WIDTH = 16;
+    //     const int HEIGHT = 16;
+    //     const float cx = (WIDTH - 1) / 2.0f;
+    //     const float cy = (HEIGHT - 1) / 2.0f;
 
-//     float radius = 0.5f;
-//     const float max_radius = 7.0f;
-//     const float growth_speed = 0.25f;
-//     bool expanding = true;
+    //     float radius = 0.5f;
+    //     const float max_radius = 7.0f;
+    //     const float growth_speed = 0.25f;
+    //     bool expanding = true;
 
-//     // --- Firework settings ---
-//     const int spikes = 12;        // number of streaks
-//     const float thinness = 0.3f;  // lower = thinner lines
-//     const int fade_factor = 220;
-//     int color_mode = 0;           // 0=blue, 1=red, 2=magenta
+    //     // --- Firework settings ---
+    //     const int spikes = 12;        // number of streaks
+    //     const float thinness = 0.3f;  // lower = thinner lines
+    //     const int fade_factor = 220;
+    //     int color_mode = 0;           // 0=blue, 1=red, 2=magenta
 
-//     while (true) {
-//         // --- Step 1: fade previous frame ---
-//         for (int i = 0; i < NUM_LEDS; ++i) {
-//             uint32_t color = led_buffer[i];
-//             uint8_t r = (color >> 16) & 0xFF;
-//             uint8_t g = (color >> 8) & 0xFF;
-//             uint8_t b = color & 0xFF;
-//             r = (r * fade_factor) / 255;
-//             g = (g * fade_factor) / 255;
-//             b = (b * fade_factor) / 255;
-//             led_buffer[i] = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
-//         }
+    //     while (true) {
+    //         // --- Step 1: fade previous frame ---
+    //         for (int i = 0; i < NUM_LEDS; ++i) {
+    //             uint32_t color = led_buffer[i];
+    //             uint8_t r = (color >> 16) & 0xFF;
+    //             uint8_t g = (color >> 8) & 0xFF;
+    //             uint8_t b = color & 0xFF;
+    //             r = (r * fade_factor) / 255;
+    //             g = (g * fade_factor) / 255;
+    //             b = (b * fade_factor) / 255;
+    //             led_buffer[i] = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+    //         }
 
-//         // --- Step 2: draw thin radial lines ---
-//         for (int y = 0; y < HEIGHT; ++y) {
-//             for (int x = 0; x < WIDTH; ++x) {
-//                 float dx = x - cx;
-//                 float dy = y - cy;
-//                 float dist = sqrtf(dx * dx + dy * dy);
-//                 float angle = atan2f(dy, dx);
+    //         // --- Step 2: draw thin radial lines ---
+    //         for (int y = 0; y < HEIGHT; ++y) {
+    //             for (int x = 0; x < WIDTH; ++x) {
+    //                 float dx = x - cx;
+    //                 float dy = y - cy;
+    //                 float dist = sqrtf(dx * dx + dy * dy);
+    //                 float angle = atan2f(dy, dx);
 
-//                 // normalize angle 0..2π
-//                 if (angle < 0) angle += 2 * M_PI;
+    //                 // normalize angle 0..2π
+    //                 if (angle < 0) angle += 2 * M_PI;
 
-//                 // which spike direction this pixel is near
-//                 float segment = (2 * M_PI) / spikes;
-//                 float modAngle = fmodf(angle, segment);
+    //                 // which spike direction this pixel is near
+    //                 float segment = (2 * M_PI) / spikes;
+    //                 float modAngle = fmodf(angle, segment);
 
-//                 // close to the center of a spike ray?
-//                 if (fabsf(modAngle - segment / 2) < thinness && fabsf(dist - radius) < 0.5f) {
-//                     float fade = 1.0f - fabsf(dist - radius);
-//                     if (fade < 0.0f) fade = 0.0f;
+    //                 // close to the center of a spike ray?
+    //                 if (fabsf(modAngle - segment / 2) < thinness && fabsf(dist - radius) < 0.5f) {
+    //                     float fade = 1.0f - fabsf(dist - radius);
+    //                     if (fade < 0.0f) fade = 0.0f;
 
-//                     uint8_t r, g = 0, b;
-//                     if (color_mode == 0) {        // blue
-//                         r = 0; b = (uint8_t)(fade * 255.0f);
-//                     } else if (color_mode == 1) { // red
-//                         r = (uint8_t)(fade * 255.0f); b = 0;
-//                     } else {                      // magenta
-//                         r = (uint8_t)(fade * 255.0f); b = (uint8_t)(fade * 200.0f);
-//                     }
+    //                     uint8_t r, g = 0, b;
+    //                     if (color_mode == 0) {        // blue
+    //                         r = 0; b = (uint8_t)(fade * 255.0f);
+    //                     } else if (color_mode == 1) { // red
+    //                         r = (uint8_t)(fade * 255.0f); b = 0;
+    //                     } else {                      // magenta
+    //                         r = (uint8_t)(fade * 255.0f); b = (uint8_t)(fade * 200.0f);
+    //                     }
 
-//                     int index = (y % 2 == 0)
-//                                 ? y * WIDTH + x
-//                                 : y * WIDTH + (WIDTH - 1 - x);
+    //                     int index = (y % 2 == 0)
+    //                                 ? y * WIDTH + x
+    //                                 : y * WIDTH + (WIDTH - 1 - x);
 
-//                     set_led_color(index, r, g, b);
-//                 }
-//             }
-//         }
+    //                     set_led_color(index, r, g, b);
+    //                 }
+    //             }
+    //         }
 
-//         update_leds();
-//         sleep_ms(40);
+    //         update_leds();
+    //         sleep_ms(40);
 
-//         // --- Step 3: animate radius ---
-//         if (expanding)
-//             radius += growth_speed;
-//         else
-//             radius -= growth_speed;
+    //         // --- Step 3: animate radius ---
+    //         if (expanding)
+    //             radius += growth_speed;
+    //         else
+    //             radius -= growth_speed;
 
-//         if (radius >= max_radius) expanding = false;
+    //         if (radius >= max_radius) expanding = false;
 
-//         // when it contracts fully, change color
-//         if (radius <= 0.5f && !expanding) {
-//             expanding = true;
-//             radius = 0.5f;
-//             color_mode = (color_mode + 1) % 3; // blue→red→magenta→repeat
-//             sleep_ms(300);
-//         }
-//     }
-// }
+    //         // when it contracts fully, change color
+    //         if (radius <= 0.5f && !expanding) {
+    //             expanding = true;
+    //             radius = 0.5f;
+    //             color_mode = (color_mode + 1) % 3; // blue→red→magenta→repeat
+    //             sleep_ms(300);
+    //         }
+    //     }
+    // }
 
 
 
