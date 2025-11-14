@@ -4,7 +4,7 @@
 #include "pico/stdlib.h"
 
 // Configuration
-#define LED_PIN 17
+#define LED_PIN 18
 #define NUM_LEDS 256
 #define DMA_CHANNEL 0
 

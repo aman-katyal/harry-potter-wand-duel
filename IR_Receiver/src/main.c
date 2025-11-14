@@ -20,9 +20,7 @@
 int main() {
     stdio_init_all();
     
-    // This sleep is only for waiting on a serial monitor.
-    // In a larger project, you would remove it.
-    // sleep_ms(3000); 
+
     printf("--- Pico NEC IR Receiver ---\n");
 
     ir_receiver_init(IR_RECEIVE_GPIO_PIN);
@@ -33,33 +31,22 @@ int main() {
     // Main application loop
     while (true) {
         
-        // --- This is now your high-level, non-blocking function ---
-        // It's very fast and just checks a flag.
+
         if (ir_receiver_decode(&decoded_data)) {
 
-            // A frame was successfully decoded and the receiver is
-            // already listening for the next one.
             
             if (decoded_data.protocol == IR_PROTOCOL_NEC) {
                 printf("NEC Frame Received:\n");
                 printf("  Address: 0x%04X\n", decoded_data.address);
                 printf("  Command: 0x%04X\n", decoded_data.command);
-                // ... etc ...
+               
             } else {
                 // ... handle overflow or unknown protocol ...
             }
 
-            // --- NO MORE ir_receiver_resume() NEEDED ---
+
         
         } 
         
-        // --- NO MORE 'else' BLOCK OR sleep_ms(10) NEEDED ---
-        
-        // --- DO OTHER WORK HERE ---
-        // Your larger project's code can run here without
-        // being blocked.
-        // e.g., update_display();
-        //       check_network_packets();
-        //       read_other_sensors();
     }
 }
