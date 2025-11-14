@@ -149,7 +149,7 @@
 
 // Test configuration
 #define TEST_CAST_SPELL true 
-#define TEST_SPELL_NUMBER 1  // Change to 1, 2, or 3 to test different spells
+#define TEST_SPELL_NUMBER 2  // Change to 1, 2, or 3 to test different spells
 
 // Packet validation
 #define PACKET_BUFFER_SIZE 3
