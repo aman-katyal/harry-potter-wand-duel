@@ -12,6 +12,9 @@ int main() {
     ws2812_init();
 
     hb_init(WIDTH, HEIGHT);
+    
+    // Start by showing the health bar
+    hb_draw();
     sleep_ms(300);
 
     uint8_t spell = 0;
@@ -40,12 +43,16 @@ int main() {
             hb_reset();
         }
 
-        hb_draw();
+        // 3. Clear the screen *before* the animation
+        ws2812_clear();
 
-        // 3. Now run the animation
+        // 4. Now run the animation (on a blank screen)
         controller(spell, WIDTH, HEIGHT);
 
-        // 4. Next spell
+        // 5. Animation is done, draw *only* the health bar
+        hb_draw();
+
+        // 6. Next spell
         spell++;
         if (spell > 4) spell = 0;
 

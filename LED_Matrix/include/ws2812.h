@@ -18,6 +18,9 @@ void ws2812_set_pixel_color(int index, uint8_t r, uint8_t g, uint8_t b);
 void ws2812_fill(uint8_t r, uint8_t g, uint8_t b);
 void ws2812_clear(void);
 
+// Pushes the current buffer to the LEDs
+void ws2812_update(void);
+
 // Pointers for the DMA system
 uint32_t* ws2812_get_buffer(void);
 

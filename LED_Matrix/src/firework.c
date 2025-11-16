@@ -28,22 +28,22 @@ void firework(int width, int height, int color_mode, int intensity) {
 
     for (int frame = 0; frame < 80; frame++) {
 
-        // --- Fade previous frame (GRB-aware) ---
+        // --- Fade previous frame (RBG-aware) ---
         uint32_t* buf = ws2812_get_buffer();
         for (int i = 0; i < NUM_LEDS; ++i) {
             uint32_t color = buf[i];
 
-            // GRB layout: [ G | R | B ]
-            uint8_t g = (color >> 16) & 0xFF;
-            uint8_t r = (color >> 8)  & 0xFF;
-            uint8_t b =  color        & 0xFF;
+            // FIXED: Read in RBG order
+            uint8_t r = (color >> 16) & 0xFF;
+            uint8_t b = (color >> 8)  & 0xFF;
+            uint8_t g =  color        & 0xFF;
 
             g = (uint8_t)((g * fade_factor) / 255);
             r = (uint8_t)((r * fade_factor) / 255);
             b = (uint8_t)((b * fade_factor) / 255);
 
-            // write back in GRB order
-            buf[i] = ((uint32_t)g << 16) | ((uint32_t)r << 8) | b;
+            // FIXED: write back in RBG order
+            buf[i] = ((uint32_t)r << 16) | ((uint32_t)b << 8) | g;
         }
 
         // --- Rays ---
@@ -122,12 +122,35 @@ void firework(int width, int height, int color_mode, int intensity) {
         }
 
         // push to LEDs
-        dma_channel_set_read_addr(DMA_CHANNEL, (void*)ws2812_get_buffer(), true);
+        ws2812_update();
         sleep_us(FRAME_INTERVAL_US);
 
         // radius animation
         radius += (expanding ? growth_speed : -growth_speed);
         if (radius >= max_radius) expanding = false;
         if (radius <= 0.5f && !expanding) expanding = true;
+    }
+
+    // --- ADD THIS NEW FADE-OUT LOOP ---
+    for (int frame = 0; frame < 30; frame++) {
+        uint32_t* buf = ws2812_get_buffer();
+        for (int i = 0; i < NUM_LEDS; ++i) {
+            uint32_t color = buf[i];
+
+            // Read in RBG order
+            uint8_t r = (color >> 16) & 0xFF;
+            uint8_t b = (color >> 8)  & 0xFF;
+            uint8_t g =  color        & 0xFF;
+
+            // Apply fade
+            r = (uint8_t)((r * fade_factor) / 255);
+            g = (uint8_t)((g * fade_factor) / 255);
+            b = (uint8_t)((b * fade_factor) / 255);
+
+            // Write back in RBG order
+            buf[i] = ((uint32_t)r << 16) | ((uint32_t)b << 8) | g;
+        }
+        ws2812_update();
+        sleep_us(FRAME_INTERVAL_US); // Use the same interval
     }
 }

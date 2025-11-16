@@ -1,6 +1,5 @@
 #include "healthbar.h"
 #include "ws2812.h"
-#include "hardware/dma.h"     // REQUIRED for dma_channel_set_read_addr
 #include "pico/stdlib.h"      // REQUIRED for sleep_ms()
 #include <stdint.h>
 
@@ -45,8 +44,7 @@ void hb_reset(void)
 void loser_screen(int width, int height) 
 {
     // Clear entire display
-    for (int i = 0; i < NUM_LEDS; i++)
-        ws2812_set_pixel_color(i, 0, 0, 0);
+    ws2812_fill(0, 0, 0); // Changed this to use the fill helper
 
     int pattern[16][16] = {0};
 
@@ -108,7 +106,7 @@ void loser_screen(int width, int height)
         }
     }
 
-    dma_channel_set_read_addr(DMA_CHANNEL, ws2812_get_buffer(), true);
+    ws2812_update();
 }
 
 
@@ -121,19 +119,7 @@ void hb_update(int delta)
 
     if (health < 0)
         health = 0;
-
-    // health reached zero → show loser screen
-    if (health == 0)
-    {
-        loser_screen(HB_WIDTH, HB_HEIGHT);
-        sleep_ms(700);
-
-        health = max_health;
-        hb_draw();
-        dma_channel_set_read_addr(DMA_CHANNEL, ws2812_get_buffer(), true);
-        return;
-    }
-
+    
     if (health > max_health)
         health = max_health;
 }
@@ -143,6 +129,11 @@ void hb_update(int delta)
 // --------------------------------------------
 void hb_draw(void)
 {
+    // --- THIS IS THE FIX ---
+    // First, clear the entire buffer
+    ws2812_fill(0, 0, 0);
+    // -----------------------
+
     int row0 = 0;
     int row1 = 1;
 
@@ -158,10 +149,13 @@ void hb_draw(void)
         }
         else
         {
+            // The fill function already set these to 0,
+            // so we don't strictly need this 'else' block,
+            // but it's good practice.
             ws2812_set_pixel_color(idx0, 0, 0, 0);
             ws2812_set_pixel_color(idx1, 0, 0, 0);
         }
     }
 
-    dma_channel_set_read_addr(DMA_CHANNEL, ws2812_get_buffer(), true);
+    ws2812_update();
 }

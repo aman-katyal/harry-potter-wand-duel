@@ -11,13 +11,13 @@ void spiral(int width, int height, int color_mode, int intensity) {
     const float cx = (width - 1) / 2.0f;
     const float cy = (height - 1) / 2.0f;
 
-    const float max_radius = hypotf(cx, cy);
     const float speed = 0.25f;   // controls rotation speed
     const float spiral_gap = 0.6f; // distance between spiral arms
 
     float angle_offset = 0.0f;
 
-    for (int frame = 0; frame < 120; frame++) {
+    // --- MAIN LOOP (Shortened to 80 frames) ---
+    for (int frame = 0; frame < 80; frame++) {
         uint32_t* buf = ws2812_get_buffer();
 
         // clear frame
@@ -59,12 +59,36 @@ void spiral(int width, int height, int color_mode, int intensity) {
             }
         }
 
-        dma_channel_set_read_addr(DMA_CHANNEL, (void*)ws2812_get_buffer(), true);
+        ws2812_update();
         
         sleep_us(FRAME_INTERVAL_US);
 
         angle_offset += speed;
         if (angle_offset > 2.0f * (float)M_PI)
             angle_offset -= 2.0f * (float)M_PI;
+    }
+
+    // --- UPDATED: Simple exponential fade-out loop ---
+    const int fade_factor = 220; 
+    for (int frame = 0; frame < 30; frame++) {
+        uint32_t* buf = ws2812_get_buffer();
+        for (int i = 0; i < NUM_LEDS; ++i) {
+            uint32_t color = buf[i];
+
+            // Read in RBG order
+            uint8_t r = (color >> 16) & 0xFF;
+            uint8_t b = (color >> 8)  & 0xFF;
+            uint8_t g =  color        & 0xFF;
+
+            // Apply fade
+            r = (uint8_t)((r * fade_factor) / 255);
+            g = (uint8_t)((g * fade_factor) / 255);
+            b = (uint8_t)((b * fade_factor) / 255);
+
+            // Write back in RBG order
+            buf[i] = ((uint32_t)r << 16) | ((uint32_t)b << 8) | g;
+        }
+        ws2812_update();
+        sleep_us(FRAME_INTERVAL_US); // Use the same interval
     }
 }

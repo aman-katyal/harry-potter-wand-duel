@@ -2,9 +2,11 @@
 #include "ws2812.h"
 #include "pico/stdlib.h"
 #include "hardware/dma.h"
-#include "firework.h"
 #include <math.h>
 #include <stdlib.h>
+
+// --- ADDED: Local frame interval to slow it down ---
+#define CIRCLE_FRAME_INTERVAL_US 15000
 
 void circle_explosion(int width, int height, int color_mode, int intensity)
 {
@@ -16,13 +18,14 @@ void circle_explosion(int width, int height, int color_mode, int intensity)
 
     float radius = 0.5f;
     const float max_radius   = 7.0f;
-    const float growth_speed = 0.30f;   // slightly faster than firework
+    // --- UPDATED: Slower growth speed ---
+    const float growth_speed = 0.20f;   
     bool expanding = true;
 
     const float ring_thickness = 0.55f;
     const int fade_factor      = 225;
 
-    for (int frame = 0; frame < 85; frame++)
+    for (int frame = 0; frame < 120; frame++)
     {
         // --- Step 1: Fade previous pixels ---
         uint32_t* buf = ws2812_get_buffer();
@@ -30,15 +33,17 @@ void circle_explosion(int width, int height, int color_mode, int intensity)
         for (int i = 0; i < NUM_LEDS; i++) {
             uint32_t c = buf[i];
 
+            // FIXED: Read in RBG order
             uint8_t r = (c >> 16) & 0xFF;
-            uint8_t g = (c >> 8)  & 0xFF;
-            uint8_t b =  c        & 0xFF;
+            uint8_t b = (c >> 8)  & 0xFF;
+            uint8_t g =  c        & 0xFF;
 
             r = (uint8_t)((r * fade_factor) / 255);
             g = (uint8_t)((g * fade_factor) / 255);
             b = (uint8_t)((b * fade_factor) / 255);
 
-            buf[i] = (r << 16) | (g << 8) | b;
+            // FIXED: Write back in RBG order
+            buf[i] = ((uint32_t)r << 16) | ((uint32_t)b << 8) | g;
         }
 
         // --- Step 2: Draw expanding circle ring ---
@@ -83,10 +88,9 @@ void circle_explosion(int width, int height, int color_mode, int intensity)
         }
 
         // --- Step 3: Send to LEDs via DMA ---
-        dma_channel_set_read_addr(DMA_CHANNEL,
-                                  (void*)ws2812_get_buffer(),
-                                  true);
-        sleep_us(FRAME_INTERVAL_US);
+        ws2812_update();
+        // --- UPDATED: Use new slower interval ---
+        sleep_us(CIRCLE_FRAME_INTERVAL_US);
 
         // --- Step 4: Animate radius ---
         radius += (expanding ? growth_speed : -growth_speed);
@@ -96,5 +100,23 @@ void circle_explosion(int width, int height, int color_mode, int intensity)
 
         if (radius <= 0.5f && !expanding)
             expanding = true;
+    }
+
+    // --- Fade-out loop ---
+    for (int frame = 0; frame < 30; frame++) {
+        uint32_t* buf = ws2812_get_buffer();
+        for (int i = 0; i < NUM_LEDS; ++i) {
+            uint32_t color = buf[i];
+            uint8_t r = (color >> 16) & 0xFF;
+            uint8_t b = (color >> 8)  & 0xFF;
+            uint8_t g =  color        & 0xFF;
+            r = (uint8_t)((r * fade_factor) / 255);
+            g = (uint8_t)((g * fade_factor) / 255);
+            b = (uint8_t)((b * fade_factor) / 255);
+            buf[i] = ((uint32_t)r << 16) | ((uint32_t)b << 8) | g;
+        }
+        ws2812_update();
+        // --- FIXED TYPO: Was CIRCLE_FRAME_VIDEO_US ---
+        sleep_us(CIRCLE_FRAME_INTERVAL_US);
     }
 }

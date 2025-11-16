@@ -52,13 +52,13 @@ void ripple(int color_mode, int intensity) {
 
                     int index = (y % 2 == 0)
                         ? y * WIDTH + x
-                        : y * WIDTH + (WIDTH - 1 - x);
+                        : y * WIDTH + (WIDTH - 1 - x); // <-- This was the line with the typo
                     ws2812_set_pixel_color(index, r, g, b);
                 }
             }
         }
 
-        dma_channel_set_read_addr(DMA_CHANNEL, (void*)ws2812_get_buffer(), true);
+        ws2812_update();
         sleep_us(FRAME_INTERVAL_US);
         radius += growth_speed;
     }
@@ -75,7 +75,7 @@ void ripple(int color_mode, int intensity) {
             b *= fade_speed;
             buf[i] = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
         }
-        dma_channel_set_read_addr(DMA_CHANNEL, (void*)ws2812_get_buffer(), true);
+        ws2812_update();
         sleep_us(FRAME_INTERVAL_US);
     }
 }

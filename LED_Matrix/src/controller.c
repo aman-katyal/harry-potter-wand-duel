@@ -1,13 +1,8 @@
-#include <stdint.h>
-#include <stdio.h>
-
 #include "controller.h"
 #include "firework.h"
 #include "spiral.h"
 #include "circle_explosion.h"
-#include "healthbar.h"
 #include "ws2812.h"
-#include "hardware/dma.h"
 
 // ---------------------------------------------------------
 // INTERNAL HELPERS
@@ -53,56 +48,21 @@ void controller(uint8_t spell_num, int width, int height)
         case 1:
         case 2:
             firework(width, height, color, intensity);
-            hb_update(-2);
-            if (hb_current() == 0) {        // <-- you either already have hb_current() OR I will give it to you below
-                loser_screen(width, height);
-                sleep_ms(800);
-                hb_reset();
-                hb_draw();
-                return;                     // <-- stop controller so next animation waits
-            }
-
-            hb_draw();
             break;
 
         // SPIRAL (spell 3)
         case 3:
             spiral(width, height, color, intensity);
-            hb_update(-1);
-            if (hb_current() == 0) {        // <-- you either already have hb_current() OR I will give it to you below
-                loser_screen(width, height);
-                sleep_ms(800);
-                hb_reset();
-                hb_draw();
-                return;                     // <-- stop controller so next animation waits
-            }
-
-            hb_draw();
             break;
 
         // CIRCLE EXPLOSION (spell 4)
         case 4:
             circle_explosion(width, height, color, intensity);
-            hb_update(-3);
-            if (hb_current() == 0) {        // <-- you either already have hb_current() OR I will give it to you below
-                loser_screen(width, height);
-                sleep_ms(800);
-                hb_reset();
-                hb_draw();
-                return;                     // <-- stop controller so next animation waits
-            }
-
-            hb_draw();
             break;
 
         // DEFAULT — clear LEDs
         default:
-            for (int i = 0; i < width * height; i++)
-                ws2812_set_pixel_color(i, 0, 0, 0);
-
-            dma_channel_set_read_addr(DMA_CHANNEL,
-                                      ws2812_get_buffer(),
-                                      true);
+            ws2812_clear();
             break;
     }
 }
