@@ -55,7 +55,7 @@ int main() {
         // 6. Next spell
         spell++;
         if (spell > 4) spell = 0;
-
+            
         sleep_ms(500);
     }
 }
