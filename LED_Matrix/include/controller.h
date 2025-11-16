@@ -1,4 +1,8 @@
-#pragma once
+#ifndef CONTROLLER_H
+#define CONTROLLER_H
 
-// Parses a numeric code and triggers the right LED animation.
-void controller(int code);
+#include <stdint.h>
+
+void controller(uint8_t spell_num, int width, int height);
+
+#endif

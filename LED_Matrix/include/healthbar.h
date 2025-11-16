@@ -7,5 +7,10 @@ void hb_init(int width, int height);
 void hb_draw(void);                // draw the bar to the LED buffer
 void hb_update(int delta);         // +healing / -damage
 int  hb_get_health(void);          // optional helper
+void hb_reset(void);
+void loser_screen(int width, int height);
+int hb_current(void);
+
+
 
 #endif

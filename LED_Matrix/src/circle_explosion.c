@@ -86,7 +86,6 @@ void circle_explosion(int width, int height, int color_mode, int intensity)
         dma_channel_set_read_addr(DMA_CHANNEL,
                                   (void*)ws2812_get_buffer(),
                                   true);
-
         sleep_us(FRAME_INTERVAL_US);
 
         // --- Step 4: Animate radius ---
