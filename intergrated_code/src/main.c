@@ -1,240 +1,186 @@
-/**
- * Integrated Wand Duel Main File
- * Combines: IR Recv/Send, Haptics, LED Matrix Animations, and Game Logic
- */
+    #include <stdio.h>
+    #include "pico/stdlib.h"
+    #include "ir_emitter.h"
+    #include "irremote.h"
+    #include "drv2605.h"
 
-#include <stdio.h>
-#include "pico/stdlib.h"
-#include "hardware/i2c.h"
+    // Pin definitions
+    #define TX_PIN 36
+    #define RX_PIN 15
+    #define I2C_SDA 16
+    #define I2C_SCL 17
 
-// --- Library Includes ---
-#include "ir_emitter.h"
-#include "irremote.h"        // Receiver logic
-#include "drv2605.h"         // Haptics
-#include "ws2812.h"          // LED Driver
-#include "healthbar.h"       // Health system
+    // Button Definitions
+    #define BTN_A 21
+    #define BTN_B 26
 
-// --- Animation Includes ---
-#include "animation_params.h" // Default structs (FIREWORK_DEFAULT_BLUE, etc.)
-#include "firework.h"
-#include "spiral.h"
-#include "circle_explosion.h"
+    // ===================================
+    // GAME CONFIGURATION
+    // ===================================
+    // Set these for each wand!
+    // Wand 1: MY=1, OPPONENT=2
+    // Wand 2: MY=2, OPPONENT=1
+    #define MY_PLAYER_ID 1
+    #define OPPONENT_PLAYER_ID 2
 
-// --- Hardware Pin Definitions ---
-#define TX_PIN      36  // IR Transmitter
-#define RX_PIN      15  // IR Receiver
-#define I2C_SDA     16  // Haptic SDA
-#define I2C_SCL     17  // Haptic SCL
-#define LED_PIN     18  // (Defined in ws2812.h, but noted here for clarity)
+    #define PACKET_REPEATS 3 
+    #define MAX_HEALTH 16    
+    // ===================================
 
-// --- Configuration ---
-#define LED_WIDTH   16
-#define LED_HEIGHT  16
+    // Packet validation
+    #define PACKET_BUFFER_SIZE 3
+    static uint8_t packet_buffer[PACKET_BUFFER_SIZE] = {0};
+    static int packet_index = 0;
 
-// Set to true to auto-cast spells for testing
-#define TEST_CAST_SPELL     true 
-#define TEST_SPELL_ID       2    // Which spell to auto-cast (1, 2, or 3)
+    // --- Helper Functions ---
 
-// --- Globals ---
-static drv2605_t haptic; // Haptic driver instance
+    bool validate_spell(uint8_t spell_num) {
+        int match_count = 0;
+        for (int i = 0; i < PACKET_BUFFER_SIZE; i++) {
+            if (packet_buffer[i] == spell_num) {
+                match_count++;
+            }
+        }
+        return (match_count >= 2);
+    }
 
-// Packet validation buffer
-#define PACKET_BUFFER_SIZE 3
-static uint8_t packet_buffer[PACKET_BUFFER_SIZE] = {0};
-static int packet_index = 0;
+    void add_packet(uint8_t spell_num) {
+        packet_buffer[packet_index] = spell_num;
+        packet_index = (packet_index + 1) % PACKET_BUFFER_SIZE;
+    }
 
+    void clear_packets() {
+        for (int i = 0; i < PACKET_BUFFER_SIZE; i++) {
+            packet_buffer[i] = 0;
+        }
+        packet_index = 0;
+    }
 
-// --- Helper Functions ---
+    void init_buttons() {
+        // Active High (Press = 1)
+        gpio_init(BTN_A); gpio_set_dir(BTN_A, GPIO_IN); gpio_pull_down(BTN_A);
+        gpio_init(BTN_B); gpio_set_dir(BTN_B, GPIO_IN); gpio_pull_down(BTN_B);
+    }
 
-/**
- * Validates spells by requiring redundancy. 
- * Returns true if 'spell_num' appears at least twice in the buffer.
- */
-bool validate_spell_input(uint8_t spell_num) {
-    int match_count = 0;
-    for (int i = 0; i < PACKET_BUFFER_SIZE; i++) {
-        if (packet_buffer[i] == spell_num) {
-            match_count++;
+    int get_spell_damage(uint8_t spell_num) {
+        switch(spell_num) {
+            case 1: return 1;
+            case 2: return 2;
+            case 3: return 3;
+            default: return 0;
         }
     }
-    return (match_count >= 2);
-}
 
-void add_packet_to_buffer(uint8_t spell_num) {
-    packet_buffer[packet_index] = spell_num;
-    packet_index = (packet_index + 1) % PACKET_BUFFER_SIZE;
-}
-
-void clear_packet_buffer() {
-    for (int i = 0; i < PACKET_BUFFER_SIZE; i++) {
-        packet_buffer[i] = 0;
-    }
-    packet_index = 0;
-}
-
-/**
- * Handles the visual and logical reaction to a validated spell.
- */
-void process_spell_effect(uint8_t spell_num) {
-    int damage = 0;
-    
-    // 1. Determine Damage and Log
-    switch(spell_num) {
-        case 1:
-            printf(">>> HIT: Spiral (Damage 1)\n");
-            damage = 1;
-            break;
-        case 2:
-            printf(">>> HIT: Explosion (Damage 2)\n");
-            damage = 2;
-            break;
-        case 3:
-            printf(">>> HIT: Firework (Damage 3)\n");
-            damage = 3;
-            break;
-        default:
-            printf(">>> Unknown Spell ID: %d\n", spell_num);
-            return;
-    }
-
-    // 2. Apply Damage
-    hb_update(-damage);
-    printf("Health Remaining: %d\n", hb_current());
-
-    // 3. Check for Death
-    // If dead, play loser screen and reset IMMEDIATELY
-    if (hb_current() <= 0) {
-        printf("*** DEFEATED ***\n");
-        loser_screen(LED_WIDTH, LED_HEIGHT);
-        sleep_ms(1000); // Pause on the "L"
-        hb_reset();     // Restore full health
-        hb_draw();      // Draw full bar
-        return;         // Skip the hit animation since we just died
-    }
-
-    // 4. Play Hit Animation (If still alive)
-    // We clear the screen first so the animation plays on a black background
-    ws2812_clear();
-
-    switch(spell_num) {
-        case 1:
-            // Spiral
-            spiral(LED_WIDTH, LED_HEIGHT, &SPIRAL_DEFAULT_RED);
-            break;
-        case 2:
-            // Circle Explosion
-            circle_explosion(LED_WIDTH, LED_HEIGHT, &EXPLOSION_DEFAULT_CYAN);
-            break;
-        case 3:
-            // Firework
-            firework(LED_WIDTH, LED_HEIGHT, &FIREWORK_DEFAULT_BLUE);
-            break;
-    }
-
-    // 5. Restore Health Bar
-    // The animation is done, now we redraw the surviving health
-    hb_draw();
-}
-
-
-// --- Main ---
-
-int main() {
-    // 1. System Init
-    stdio_init_all();
-    sleep_ms(2000); // Wait for USB serial
-    printf("\n=== WAND DUEL SYSTEM STARTING ===\n");
-
-    // 2. Initialize Subsystems
-    
-    // IR
-    ir_emitter_init(TX_PIN);
-    ir_receiver_init(RX_PIN);
-    
-    // Haptics
-    if (drv2605_init(&haptic, i2c0, I2C_SDA, I2C_SCL)) {
-        printf("Haptics initialized.\n");
-        drv2605_set_mode(&haptic, DRV2605_MODE_INTTRIG);
-        drv2605_select_library(&haptic, 1); // Library 1 = Strong Click
-    } else {
-        printf("Haptics initialization FAILED!\n");
-    }
-
-    // LEDs
-    ws2812_init();
-    hb_init(LED_WIDTH, LED_HEIGHT);
-    hb_draw(); // Draw initial state (Full Health)
-
-    printf("System Ready. Listening for spells...\n");
-    
-    // Variables for loop
-    ir_decoded_data_t received_data;
-    bool casting_state = false;
-    uint8_t last_processed_spell = 0;
-
-    while (true) {
+    int main() {
+        stdio_init_all();
+        sleep_ms(3000);
         
-        // --- A. IR Receiver Logic ---
-        if (ir_receiver_decode(&received_data)) {
-            // We only care about NEC protocol
-            if (received_data.protocol == IR_PROTOCOL_NEC) {
-                uint8_t spell_cmd = received_data.command;
-                
-                // Add to rolling buffer
-                add_packet_to_buffer(spell_cmd);
+        printf("\n=== Wand Duel ===\n");
+        
+        init_buttons();
+        ir_emitter_init(TX_PIN);
+        ir_receiver_init(RX_PIN);
+        
+        drv2605_t haptic;
+        drv2605_init(&haptic, i2c0, I2C_SDA, I2C_SCL);
+        drv2605_set_mode(&haptic, DRV2605_MODE_INTTRIG);
+        drv2605_select_library(&haptic, 1);
+        
+        int current_health = MAX_HEALTH;
 
-                // Validate: Do we have 2 matching packets? 
-                // Also ensure we don't re-trigger on the exact same packet stream continuously
-                // (Logic: if spell_cmd changes or time passes, we accept. 
-                // Simple logic: just check validation. Debouncing is handled by the fact animations are blocking).
-                if (validate_spell_input(spell_cmd)) {
+        printf("Wand Ready!\n");
+        printf("--> My ID: %d\n", MY_PLAYER_ID);
+        printf("--> Accepting hits from ID: %d\n", OPPONENT_PLAYER_ID);
+        printf("Health: %d/%d\n\n", current_health, MAX_HEALTH);
+        
+        ir_decoded_data_t received_spell;
+        bool currently_casting = false;
+        uint8_t last_spell = 0;
+        
+        while (true) {
+            // ==========================================
+            // 1. RECEIVE SPELLS LOGIC
+            // ==========================================
+            if (ir_receiver_decode(&received_spell)) {
+                // Check 1: Is it the right protocol?
+                if (received_spell.protocol == IR_PROTOCOL_NEC) {
                     
-                    // 1. Haptic Feedback (Physical reaction first)
-                    drv2605_play_hit_feedback(&haptic);
-
-                    // 2. Process Logic & Visuals
-                    process_spell_effect(spell_cmd);
+                    // Check 2: Is it from our opponent?
+                    if (received_spell.address == OPPONENT_PLAYER_ID) {
+                        
+                        uint8_t spell_num = received_spell.command;
+                        add_packet(spell_num);
                     
-                    // 3. Clear buffer to prevent double-triggering
-                    clear_packet_buffer();
+                        if (validate_spell(spell_num) && spell_num != last_spell) {
+                            printf("\n*** HIT CONFIRMED! (from %d) ***\n", received_spell.address);
+                            drv2605_play_hit_feedback(&haptic);
+                            current_health -= get_spell_damage(spell_num);
+                            printf("Health: %d/%d\n", current_health, MAX_HEALTH);
+                            
+                            last_spell = spell_num;
+                            clear_packets();
+                            
+                            if (current_health <= 0) {
+                                printf("*** DEFEATED ***\n");
+                                sleep_ms(2000);
+                                current_health = MAX_HEALTH;
+                                last_spell = 0;
+                            }
+                        }
+                    } 
+                    // Check 3: Is it just our own spell? (Ignore)
+                    else if (received_spell.address == MY_PLAYER_ID) {
+                        // printf("Ignored own spell packet.\n");
+                    }
+                    // Check 4: Is it from an unknown wand? (Ignore)
+                    else {
+                        printf("Ignored packet from unknown address: %d\n", received_spell.address);
+                    }
                 }
             }
-            // Resume receiver for next frame
-            ir_receiver_resume(); 
-        }
-
-        // --- B. IR Emitter Logic ---
-        // Must be called frequently to handle non-blocking PWM timing
-        ir_emitter_update();
-
-
-        // --- C. Test Casting Logic (Optional) ---
-        // Sends a spell periodically if enabled
-        if (TEST_CAST_SPELL) {
-            static uint32_t last_cast_time = 0;
-            uint32_t now = to_ms_since_boot(get_absolute_time());
-
-            // Cast every 5 seconds if idle
-            if (!casting_state && (now - last_cast_time > 5000)) {
-                printf("--- CASTING TEST SPELL %d ---\n", TEST_SPELL_ID);
-                
-                // Haptic "Recoil"
-                drv2605_play_cast_feedback(&haptic);
-                
-                // Start transmission (Addr=1, Cmd=SpellID, Repeats=3)
-                ir_emitter_start(1, TEST_SPELL_ID, 3);
-                
-                casting_state = true;
-                last_cast_time = now;
+            
+            // ==========================================
+            // 2. EMITTER UPDATE LOOP
+            // ==========================================
+            ir_emitter_update();
+            
+            if (currently_casting && ir_emitter_done()) {
+                printf("Spell sent.\n");
+                currently_casting = false;
             }
 
-            // Check if transmission finished
-            if (casting_state && ir_emitter_done()) {
-                casting_state = false;
-            }
-        }
+            // ==========================================
+            // 3. BUTTON INPUT LOGIC (CASTING)
+            // ==========================================
+            
+            if (!currently_casting && ir_emitter_done()) {
+                
+                bool a_pressed = gpio_get(BTN_A);
+                bool b_pressed = gpio_get(BTN_B);
 
-        // Small delay to prevent CPU hogging (IR logic handles timing internally)
-        sleep_ms(1);
+                if (a_pressed || b_pressed) {
+                    sleep_ms(50); // Combo delay
+                    a_pressed = gpio_get(BTN_A);
+                    b_pressed = gpio_get(BTN_B);
+                    
+                    int spell_to_cast = 0;
+
+                    if (a_pressed && b_pressed) spell_to_cast = 3;
+                    else if (a_pressed) spell_to_cast = 1;
+                    else if (b_pressed) spell_to_cast = 2;
+
+                    if (spell_to_cast > 0) {
+                        printf("CASTING Spell %d (as ID %d)\n", spell_to_cast, MY_PLAYER_ID);
+                        drv2605_play_cast_feedback(&haptic);
+                        
+                        // Transmit using MY_PLAYER_ID
+                        ir_emitter_start(MY_PLAYER_ID, spell_to_cast, PACKET_REPEATS);
+                        
+                        currently_casting = true;
+                        sleep_ms(400); // Debounce
+                    }
+                }
+            }
+            sleep_ms(1);
+        }
     }
-}
