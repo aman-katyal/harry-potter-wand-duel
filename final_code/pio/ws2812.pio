@@ -1,0 +1,30 @@
+.program ws2812
+.side_set 1
+
+; These values are tuned for an 8MHz PIO clock (1 cycle = 125ns)
+; to be closer to the center of the WS2812B datasheet specification.
+; Total cycles per bit is 10 (1.25us), for an 800kHz data rate.
+.define public T1 3
+.define public T2 3
+.define public T3 4
+
+.wrap_target
+bitloop:
+    out x, 1             side 0 [T3 - 1]
+    jmp !x do_zero       side 1 [T1 - 1]
+do_one:
+    jmp bitloop          side 1 [T2 - 1]
+do_zero:
+    nop                  side 0 [T2 - 1]
+.wrap
+
+; -- Timings Breakdown --
+; A full bit cycle takes T1 + T2 + T3 = 10 cycles (1.25µs at 8MHz). This gives the 800kHz data rate.
+;
+; For a '0' bit:
+; T0H (High part): The pin is set HIGH by the side-set on the `jmp` instruction and lasts for T1 cycles (3 cycles = 0.375µs).
+; T0L (Low part): The pin goes LOW on the `nop` instruction and stays low for T2 cycles, plus the T3 cycles from the next `out` instruction (7 cycles = 0.875µs).
+;
+; For a '1' bit:
+; T1H (High part): The pin is set HIGH by the side-set on the `jmp !x` and stays high through the next `jmp bitloop` for T1 + T2 cycles (6 cycles = 0.750µs).
+; T1L (Low part): The pin goes LOW on the `out` instruction and stays low for T3 cycles (4 cycles = 0.500µs).
