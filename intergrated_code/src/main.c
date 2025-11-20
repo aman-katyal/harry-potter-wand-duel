@@ -27,8 +27,8 @@
 // ===================================
 // GAME CONFIGURATION
 // ===================================
-#define MY_PLAYER_ID 1        // Change to 2 for the second wand
-#define OPPONENT_PLAYER_ID 2  // Change to 1 for the second wand
+#define MY_PLAYER_ID 2        // Change to 2 for the second wand
+#define OPPONENT_PLAYER_ID 1  // Change to 1 for the second wand
 #define PACKET_REPEATS 3 
 
 // Time to stay "dead" after the loser screen before you can cast again
