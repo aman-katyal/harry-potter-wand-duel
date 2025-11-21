@@ -17,32 +17,33 @@ static uint8_t read_register(drv2605_t *drv, uint8_t reg) {
 bool drv2605_init(drv2605_t *drv, i2c_inst_t *i2c_port, uint sda_pin, uint scl_pin) {
     drv->i2c_port = i2c_port;
 
-    // Initialize I2C at 100kHz
-    i2c_init(i2c_port, 100 * 1000);
+    // Initialize I2C at 400kHz (faster than 100kHz for efficiency)
+    i2c_init(i2c_port, 400 * 1000);
     gpio_set_function(sda_pin, GPIO_FUNC_I2C);
     gpio_set_function(scl_pin, GPIO_FUNC_I2C);
+    gpio_pull_up(sda_pin);
+    gpio_pull_up(scl_pin);
 
     // Check device status
     uint8_t id = read_register(drv, DRV2605_REG_STATUS);
-    if ((id & 0xE0) != 0xE0) { // Top 3 bits should be 111 for DRV2605
-        return false; // Device not found
+    if ((id & 0xE0) != 0xE0) {
+        return false;
     }
 
-    write_register(drv, DRV2605_REG_MODE, 0x00); // Out of standby
-    write_register(drv, DRV2605_REG_RTPIN, 0x00); // No real-time-playback
-    write_register(drv, DRV2605_REG_WAVESEQ1, 1); // A strong click
-    write_register(drv, DRV2605_REG_WAVESEQ2, 0); // End of sequence
+    write_register(drv, DRV2605_REG_MODE, 0x00);
+    write_register(drv, DRV2605_REG_RTPIN, 0x00);
+    write_register(drv, DRV2605_REG_WAVESEQ1, 1);
+    write_register(drv, DRV2605_REG_WAVESEQ2, 0);
     write_register(drv, DRV2605_REG_OVERDRIVE, 0);
     write_register(drv, DRV2605_REG_SUSTAINPOS, 0);
     write_register(drv, DRV2605_REG_SUSTAINNEG, 0);
     write_register(drv, DRV2605_REG_BREAK, 0);
     write_register(drv, DRV2605_REG_AUDIOMAX, 0x64);
 
-    // Set ERM open loop mode
     uint8_t feedback = read_register(drv, DRV2605_REG_FEEDBACK);
-    write_register(drv, DRV2605_REG_FEEDBACK, feedback & 0x7F); // Clear LRA bit
+    write_register(drv, DRV2605_REG_FEEDBACK, feedback & 0x7F);
     uint8_t control3 = read_register(drv, DRV2605_REG_CONTROL3);
-    write_register(drv, DRV2605_REG_CONTROL3, control3 | 0x20); // Set ERM_OPEN_LOOP
+    write_register(drv, DRV2605_REG_CONTROL3, control3 | 0x20);
 
     return true;
 }
@@ -66,4 +67,24 @@ void drv2605_set_mode(drv2605_t *drv, uint8_t mode) {
 
 void drv2605_set_realtime_value(drv2605_t *drv, uint8_t rtp) {
     write_register(drv, DRV2605_REG_RTPIN, rtp);
+}
+
+// Non-blocking status check
+bool drv2605_is_playing(drv2605_t *drv) {
+    uint8_t status = read_register(drv, DRV2605_REG_GO);
+    return (status & 0x01) != 0;  // Bit 0 indicates GO status
+}
+
+// Quick presets for wand effects
+void drv2605_play_cast_feedback(drv2605_t *drv) {
+    drv2605_set_waveform(drv, 0, 1);   // Sharp click
+    drv2605_set_waveform(drv, 1, 0);   // End
+    drv2605_go(drv);
+}
+
+void drv2605_play_hit_feedback(drv2605_t *drv) {
+    drv2605_set_waveform(drv, 0, 84);  // Strong buzz
+    drv2605_set_waveform(drv, 1, 47);  // Strong pulse
+    drv2605_set_waveform(drv, 2, 0);   // End
+    drv2605_go(drv);
 }
