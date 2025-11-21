@@ -189,16 +189,14 @@ int main() {
                         // D. Check Death using Healthbar Library
                         if (hb_current() <= 0) {
                             printf("*** YOU DIED ***\n");
+                            // Play Loser Animation
                             is_dead = true;
                             death_timestamp = to_ms_since_boot(get_absolute_time());
-                            
-                            // Play Loser Animation
                             loser_screen(LED_WIDTH, LED_HEIGHT);
-                            
                             // Keep screen dark until respawn? 
                             // Or leave the "X" from loser_screen?
                             // Let's clear it to save power while dead
-                            ws2812_clear(); 
+                            // ws2812_clear(); 
                         }
                     }
                 }
