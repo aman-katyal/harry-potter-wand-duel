@@ -1228,16 +1228,6 @@
 		)
 		(uuid "ba1545e8-75e1-4f4e-a582-7c0dce5fb392")
 	)
-	(label "RST_IMU"
-		(at 73.66 118.11 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "40ba0053-fdc4-4d66-ae58-9e5166c9fc56")
-	)
 	(label "SCL1"
 		(at 73.66 113.03 180)
 		(effects
@@ -1248,7 +1238,7 @@
 		)
 		(uuid "6ab40ecd-0383-46e9-bbb4-d4083ef380df")
 	)
-	(label "INT_IMU"
+	(label "RST_IMU"
 		(at 73.66 120.65 180)
 		(effects
 			(font
@@ -1256,7 +1246,17 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "be59e2ed-ab7d-4e7e-8866-51b20ea8edd4")
+		(uuid "6dedfebd-deae-41f4-9226-fcd3c4c7a12e")
+	)
+	(label "INT_IMU"
+		(at 73.66 118.11 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "af0d1eb6-d7af-4acc-8f18-92b6c1e2961a")
 	)
 	(label "SDA1"
 		(at 73.66 115.57 180)

@@ -1,4 +1,4 @@
-26636372823759890
+26643422054359897
 2x1term
 CONN_1751248_PXC
 
@@ -6,6 +6,20 @@ CONN_1751248_PXC
 0
 2
 2
+3x1term
+691137710003
+
+
+0
+3
+3
+6x1term
+CONN6_284414-6_TEC
+
+284414-6 
+0
+6
+6
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -106259,3 +106273,17 @@ Varistor VF
 0
 2
 2
+bno085
+MODULE_4754
+
+
+0
+16
+16
+ldo
+SOT230P700X185-4N
+
+
+0
+4
+4
