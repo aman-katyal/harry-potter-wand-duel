@@ -16823,6 +16823,18 @@
 			(justify left bottom)
 		)
 	)
+	(gr_text "GND"
+		(at 34.025 110.475 0)
+		(layer "F.SilkS")
+		(uuid "1cb64e23-861c-4ab8-ae77-72088db568a7")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
 	(gr_text "GND\n"
 		(at 156.35 25 0)
 		(layer "F.SilkS")
@@ -16859,6 +16871,18 @@
 			(justify left bottom)
 		)
 	)
+	(gr_text "SCL"
+		(at 34.025 124.25 0)
+		(layer "F.SilkS")
+		(uuid "272e1772-0485-47fd-b026-fb395c04c6e7")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
 	(gr_text "Button 3"
 		(at 29.9 146.85 0)
 		(layer "F.SilkS")
@@ -16875,6 +16899,18 @@
 		(at 18.45 153.95 0)
 		(layer "F.SilkS")
 		(uuid "32eaf008-2668-4d19-ab74-46d6af6de321")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "PWR"
+		(at 34.15 127.675 0)
+		(layer "F.SilkS")
+		(uuid "342a2fcd-f052-4a58-9aec-76410519561f")
 		(effects
 			(font
 				(size 1 1)
@@ -16991,6 +17027,18 @@
 			(justify left bottom)
 		)
 	)
+	(gr_text "INT"
+		(at 34.2 117.25 0)
+		(layer "F.SilkS")
+		(uuid "7cf60ff5-1889-4eef-8ea0-8988dba7091e")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
 	(gr_text "LED GND"
 		(at 23.25 176.4 0)
 		(layer "F.SilkS")
@@ -17067,6 +17115,30 @@
 		(at 51.75 28.15 0)
 		(layer "F.SilkS")
 		(uuid "ea938bd5-5320-42a9-9d0f-c9e20bc7c57d")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "SDA"
+		(at 34.1 120.8 0)
+		(layer "F.SilkS")
+		(uuid "eedbbbcd-cc2a-4cac-8f70-86cdd360980e")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "RST"
+		(at 34.1 113.875 0)
+		(layer "F.SilkS")
+		(uuid "f72db4fd-f3b1-4e82-accd-16e5391e9ab7")
 		(effects
 			(font
 				(size 1 1)
