@@ -93,7 +93,7 @@
 
 // int main() {
 //     stdio_init_all();
-//     sleep_ms(2000);
+//     sleep_ms(2000);a
 //     printf("--- BNO08x Edge Impulse Data Forwarder ---\n");
 
 //     // --- I2C and Sensor Initialization (YOURS - UNCHANGED) ---

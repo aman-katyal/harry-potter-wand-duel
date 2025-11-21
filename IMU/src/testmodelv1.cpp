@@ -76,6 +76,13 @@
 //     float roll;
 // } euler_t;
 
+// // Struct with classification decision (new)
+// typedef struct {
+//     bool        detected;     // true if confidence exceeds threshold
+//     const char *label;        // predicted label string
+//     float       confidence;   // prediction probability [0..1]
+// } SpellDecision;
+
 // // BNO08x driver object
 // static bno08x_driver_t bno08x;
 
@@ -169,174 +176,207 @@
 // }
 
 // // ---------------------------------------------------------------------------
-// // main()
+// // Function version of the original main loop
+// // ---------------------------------------------------------------------------
+
+// SpellDecision get_spell_decision(void) {
+//     // These are the same constants that were in main()
+//     const int AXIS_COUNT       = EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
+//     const int LAST_INDEX       = EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE - AXIS_COUNT;
+//     const int STEPS_PER_WINDOW = EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE / AXIS_COUNT;
+
+//     // Persistent state (replaces local vars from main())
+//     static bool     initialized         = false;
+//     static int      samples_collected   = 0;
+//     static uint64_t last_inference_time = 0;
+//     static repeating_timer_t timer;
+
+//     SpellDecision decision;
+//     decision.detected   = false;
+//     decision.label      = NULL;
+//     decision.confidence = 0.0f;
+
+//     // One-time initialization (everything that used to be at the top of main)
+//     if (!initialized) {
+//         // Initialize USB serial
+//         stdio_init_all();
+//         sleep_ms(2000);   // allow time for terminal to connect
+
+//         ei_printf("\n=============================================\n");
+//         ei_printf("  BNO08x Spell Classifier (Edge Impulse)\n");
+//         ei_printf("  Axes: x,y,z, roll,pitch,yaw (6)\n");
+//         ei_printf("  Window: %d ms, Stride: %d ms, Freq: %d Hz\n",
+//                   MOVING_WINDOW_MS, INFERENCE_INTERVAL_MS, SAMPLING_FREQUENCY_HZ);
+//         ei_printf("=============================================\n");
+
+//         // -------------------------------------------------------------------
+//         // 1. Init I2C
+//         // -------------------------------------------------------------------
+//         i2c_init(I2C_PORT, I2C_BAUDRATE);
+//         gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
+//         gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
+//         gpio_pull_up(I2C_SDA_PIN);
+//         gpio_pull_up(I2C_SCL_PIN);
+
+//         // -------------------------------------------------------------------
+//         // 2. Init BNO08x
+//         // -------------------------------------------------------------------
+//         if (!bno08x_begin_i2c(&bno08x, I2C_PORT, BNO08X_I2C_ADDR, BNO08X_RESET_PIN)) {
+//             ei_printf("ERROR: BNO08x not found on I2C bus!\n");
+//             while (1) { sleep_ms(1000); }
+//         }
+
+//         // Enable accelerometer + stabilized rotation vector
+//         set_reports(&bno08x);
+
+//         // -------------------------------------------------------------------
+//         // 3. Sanity-check: is window config close to model?
+//         // -------------------------------------------------------------------
+//         size_t expected_features =
+//             (MOVING_WINDOW_MS * SAMPLING_FREQUENCY_HZ *
+//              EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) / 1000;
+
+//         ei_printf("Model DSP input size: %d\n", EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
+//         ei_printf("Expected from window:  %d (approx)\n", (int)expected_features);
+
+//         if (abs((int)expected_features - (int)EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE) > 75) {
+//             ei_printf("WARNING: window size / frequency may not match your impulse.\n");
+//             ei_printf("Check Impulse: 74 Hz, 2000 ms, 6 axes.\n\n");
+//         }
+
+//         // -------------------------------------------------------------------
+//         // 4. Start timer for sensor polling
+//         // -------------------------------------------------------------------
+//         add_repeating_timer_us(SENSOR_POLL_INTERVAL_US,
+//                                sensor_poll_callback,
+//                                NULL,
+//                                &timer);
+
+//         ei_printf("Sensor polling timer started.\n");
+//         ei_printf("Filling first 2-second buffer (warm-up)...\n");
+
+//         // -------------------------------------------------------------------
+//         // 5. Moving-window state variables
+//         // -------------------------------------------------------------------
+//         memset(features, 0, sizeof(features));       // start with zeros
+
+//         samples_collected   = 0;            // warm-up counter
+//         last_inference_time = 0;            // when we last ran the model
+
+//         initialized = true;
+//     }
+
+//     // -----------------------------------------------------------------------
+//     // One "iteration" of the old while(true) loop
+//     // -----------------------------------------------------------------------
+
+//     // Wait until the timer ISR tells us there's fresh sensor data
+//     if (!g_sensor_data_updated) {
+//         tight_loop_contents();
+//         return decision;   // no update this call
+//     }
+//     g_sensor_data_updated = false;
+
+//     // ------------------ Slide window ---------------------------------------
+//     // Drop the oldest time step and shift everything left by 6 floats.
+//     memmove(features,
+//             features + AXIS_COUNT,
+//             LAST_INDEX * sizeof(float));
+
+//     // ------------------ Insert newest sample -------------------------------
+//     // IMPORTANT: order must match the order sent to Edge Impulse
+//     // when you recorded data: x,y,z,roll,pitch,yaw.
+//     features[LAST_INDEX + 0] = g_acc.x;
+//     features[LAST_INDEX + 1] = g_acc.y;
+//     features[LAST_INDEX + 2] = g_acc.z;
+//     features[LAST_INDEX + 3] = g_ypr.roll;
+//     features[LAST_INDEX + 4] = g_ypr.pitch;
+//     features[LAST_INDEX + 5] = g_ypr.yaw;
+
+//     // ------------------ Warm-up phase --------------------------------------
+//     // First, we need to fill an entire 2-second window before
+//     // calling the classifier. After STEPS_PER_WINDOW samples,
+//     // the buffer holds the last 2 seconds of data.
+//     if (samples_collected < STEPS_PER_WINDOW) {
+//         samples_collected++;
+//         return decision;
+//     }
+
+//     // ------------------ Run inference every 250 ms -------------------------
+//     uint64_t now = ei_read_timer_ms();
+//     if ((now - last_inference_time) < INFERENCE_INTERVAL_MS) {
+//         return decision;   // not time yet
+//     }
+//     last_inference_time = now;
+
+//     // Wrap our feature buffer in a signal_t for Edge Impulse
+//     signal_t signal;
+//     signal.total_length = EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE;
+//     signal.get_data     = &get_signal_data;
+
+//     ei_impulse_result_t result = { 0 };
+
+//     EI_IMPULSE_ERROR r = run_classifier(&signal, &result, false);
+//     if (r != EI_IMPULSE_OK) {
+//         ei_printf("ERR: run_classifier returned %d\n", r);
+//         return decision;
+//     }
+
+//     // ------------------ Print results (unchanged) --------------------------
+//     ei_printf("\nInference (DSP: %d ms, NN: %d ms, Anom: %d ms)\n",
+//               result.timing.dsp,
+//               result.timing.classification,
+//               result.timing.anomaly);
+
+//     float    best_val = 0.0f;
+//     uint16_t best_idx = 0;
+
+//     for (uint16_t i = 0; i < EI_CLASSIFIER_LABEL_COUNT; i++) {
+//         float       v     = result.classification[i].value;
+//         const char *label = ei_classifier_inferencing_categories[i];
+
+//         ei_printf("  %s: %.3f\n", label, v);
+
+//         if (v > best_val) {
+//             best_val = v;
+//             best_idx = i;
+//         }
+//     }
+
+//     // Optional simple threshold (tweak as needed)
+//     const float DETECT_THRESHOLD = 0.7f;
+
+//     if (best_val > DETECT_THRESHOLD) {
+//         ei_printf("  >> DETECTED: %s (%.2f)\n",
+//                   ei_classifier_inferencing_categories[best_idx],
+//                   best_val);
+//     }
+
+//     // ------------------ Fill and return decision struct --------------------
+//     decision.label      = ei_classifier_inferencing_categories[best_idx];
+//     decision.confidence = best_val;
+//     decision.detected   = (best_val > DETECT_THRESHOLD);
+
+//     return decision;
+// }
+
+// // ---------------------------------------------------------------------------
+// // main() – now just calls get_spell_decision()
 // // ---------------------------------------------------------------------------
 
 // int main() {
-//     // Initialize USB serial
-//     stdio_init_all();
-//     sleep_ms(2000);   // allow time for terminal to connect
-
-//     ei_printf("\n=============================================\n");
-//     ei_printf("  BNO08x Spell Classifier (Edge Impulse)\n");
-//     ei_printf("  Axes: x,y,z, roll,pitch,yaw (6)\n");
-//     ei_printf("  Window: %d ms, Stride: %d ms, Freq: %d Hz\n",
-//               MOVING_WINDOW_MS, INFERENCE_INTERVAL_MS, SAMPLING_FREQUENCY_HZ);
-//     ei_printf("=============================================\n");
-
-//     // -----------------------------------------------------------------------
-//     // 1. Init I2C
-//     // -----------------------------------------------------------------------
-//     i2c_init(I2C_PORT, I2C_BAUDRATE);
-//     gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
-//     gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
-//     gpio_pull_up(I2C_SDA_PIN);
-//     gpio_pull_up(I2C_SCL_PIN);
-
-//     // -----------------------------------------------------------------------
-//     // 2. Init BNO08x
-//     // -----------------------------------------------------------------------
-//     if (!bno08x_begin_i2c(&bno08x, I2C_PORT, BNO08X_I2C_ADDR, BNO08X_RESET_PIN)) {
-//         ei_printf("ERROR: BNO08x not found on I2C bus!\n");
-//         while (1) { sleep_ms(1000); }
-//     }
-
-//     // Enable accelerometer + stabilized rotation vector
-//     set_reports(&bno08x);
-
-//     // -----------------------------------------------------------------------
-//     // 3. Sanity-check: is window config close to model?
-//     // -----------------------------------------------------------------------
-//     size_t expected_features =
-//         (MOVING_WINDOW_MS * SAMPLING_FREQUENCY_HZ *
-//          EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME) / 1000;
-
-//     ei_printf("Model DSP input size: %d\n", EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
-//     ei_printf("Expected from window:  %d (approx)\n", (int)expected_features);
-
-//     if (abs((int)expected_features - (int)EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE) > 75) {
-//         ei_printf("WARNING: window size / frequency may not match your impulse.\n");
-//         ei_printf("Check Impulse: 74 Hz, 2000 ms, 6 axes.\n\n");
-//     }
-
-//     // -----------------------------------------------------------------------
-//     // 4. Start timer for sensor polling
-//     // -----------------------------------------------------------------------
-//     static repeating_timer_t timer;
-//     add_repeating_timer_us(SENSOR_POLL_INTERVAL_US,
-//                            sensor_poll_callback,
-//                            NULL,
-//                            &timer);
-
-//     ei_printf("Sensor polling timer started.\n");
-//     ei_printf("Filling first 2-second buffer (warm-up)...\n");
-
-//     // -----------------------------------------------------------------------
-//     // 5. Moving-window state variables
-//     // -----------------------------------------------------------------------
-//     memset(features, 0, sizeof(features));       // start with zeros
-
-//     // Number of floats per time step (raw samples per frame) = 6
-//     const int AXIS_COUNT = EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
-
-//     // Where the newest sample gets written in the feature buffer
-//     const int LAST_INDEX = EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE - AXIS_COUNT;
-
-//     // How many time steps fit in a full 2s window
-//     const int STEPS_PER_WINDOW = EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE / AXIS_COUNT;
-
-//     int      samples_collected   = 0;            // warm-up counter
-//     uint64_t last_inference_time = 0;            // when we last ran the model
-
-//     // -----------------------------------------------------------------------
-//     // 6. Main loop
-//     // -----------------------------------------------------------------------
 //     while (true) {
+//         SpellDecision decision = get_spell_decision();
 
-//         // Wait until the timer ISR tells us there's fresh sensor data
-//         if (!g_sensor_data_updated) {
-//             tight_loop_contents();
-//             continue;
-//         }
-//         g_sensor_data_updated = false;
-
-//         // ------------------ 6.1 Slide window ------------------------------
-//         // Drop the oldest time step and shift everything left by 6 floats.
-//         memmove(features,
-//                 features + AXIS_COUNT,
-//                 LAST_INDEX * sizeof(float));
-
-//         // ------------------ 6.2 Insert newest sample ----------------------
-//         // IMPORTANT: order must match the order sent to Edge Impulse
-//         // when you recorded data: x,y,z,roll,pitch,yaw.
-//         features[LAST_INDEX + 0] = g_acc.x;
-//         features[LAST_INDEX + 1] = g_acc.y;
-//         features[LAST_INDEX + 2] = g_acc.z;
-//         features[LAST_INDEX + 3] = g_ypr.roll;
-//         features[LAST_INDEX + 4] = g_ypr.pitch;
-//         features[LAST_INDEX + 5] = g_ypr.yaw;
-
-//         // ------------------ 6.3 Warm-up phase -----------------------------
-//         // First, we need to fill an entire 2-second window before
-//         // calling the classifier. After STEPS_PER_WINDOW samples,
-//         // the buffer holds the last 2 seconds of data.
-//         if (samples_collected < STEPS_PER_WINDOW) {
-//             samples_collected++;
-//             continue;
-//         }
-
-//         // ------------------ 6.4 Run inference every 250 ms ----------------
-//         uint64_t now = ei_read_timer_ms();
-//         if ((now - last_inference_time) < INFERENCE_INTERVAL_MS) {
-//             continue;   // not time yet
-//         }
-//         last_inference_time = now;
-
-//         // Wrap our feature buffer in a signal_t for Edge Impulse
-//         signal_t signal;
-//         signal.total_length = EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE;
-//         signal.get_data     = &get_signal_data;
-
-//         ei_impulse_result_t result = { 0 };
-
-//         EI_IMPULSE_ERROR r = run_classifier(&signal, &result, false);
-//         if (r != EI_IMPULSE_OK) {
-//             ei_printf("ERR: run_classifier returned %d\n", r);
-//             continue;
-//         }
-
-//         // ------------------ 6.5 Print results -----------------------------
-//         ei_printf("\nInference (DSP: %d ms, NN: %d ms, Anom: %d ms)\n",
-//                   result.timing.dsp,
-//                   result.timing.classification,
-//                   result.timing.anomaly);
-
-//         float    best_val = 0.0f;
-//         uint16_t best_idx = 0;
-
-//         for (uint16_t i = 0; i < EI_CLASSIFIER_LABEL_COUNT; i++) {
-//             float       v     = result.classification[i].value;
-//             const char *label = ei_classifier_inferencing_categories[i];
-
-//             ei_printf("  %s: %.3f\n", label, v);
-
-//             if (v > best_val) {
-//                 best_val = v;
-//                 best_idx = i;
-//             }
-//         }
-
-//         // Optional simple threshold (tweak as needed)
-//         const float DETECT_THRESHOLD = 0.7f;
-
-//         if (best_val > DETECT_THRESHOLD) {
-//             ei_printf("  >> DETECTED: %s (%.2f)\n",
-//                       ei_classifier_inferencing_categories[best_idx],
-//                       best_val);
-//         }
+//         // All logging still happens inside get_spell_decision().
+//         // You can also act on the decision here if you want:
+//         // if (decision.detected) {
+//         //     printf("Spell: %s, confidence: %.2f\n",
+//         //            decision.label, decision.confidence);
+//         // }
 //     }
 
-//     return 0; // never reached
+//     return 0;
 // }
 
 // // ---------------------------------------------------------------------------
