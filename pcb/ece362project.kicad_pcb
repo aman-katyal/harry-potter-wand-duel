@@ -455,6 +455,17 @@
 			(uuid "77878fff-3ffc-43d6-bfc0-7b2c8a2d9ed7")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/components/(2x1_term)1751248/1751248.stp"
+			(offset
+				(xyz 5.5 3.5 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -0 -0 180)
+			)
+		)
 	)
 	(footprint "TestPoint:TestPoint_Pad_3.0x3.0mm"
 		(layer "F.Cu")
@@ -1079,7 +1090,7 @@
 			(uuid "cde63d0a-be5a-42e8-8e93-90d59e7af765")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Connector_PinHeader_2.54mm.3dshapes/PinHeader_1x04_P2.54mm_Vertical.step"
+		(model "${KICAD9_3DMODEL_DIR}/Connector_PinSocket_2.54mm.3dshapes/PinSocket_1x04_P2.54mm_Vertical.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -2004,13 +2015,13 @@
 		(embedded_fonts no)
 		(model "${KIPRJMOD}/components/(691137710003)screw_terminal 3x1/Download_STP_691137710003_rev1.stp"
 			(offset
-				(xyz 7.5 4 0)
+				(xyz -7.5 -4 0)
 			)
 			(scale
 				(xyz 1 1 1)
 			)
 			(rotate
-				(xyz -90 -0 -90)
+				(xyz -90 -0 90)
 			)
 		)
 	)
@@ -3055,6 +3066,17 @@
 			(uuid "d478cdae-4c69-4b80-857b-a8628db05adb")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/components/(2x1_term)1751248/1751248.stp"
+			(offset
+				(xyz 5.5 3.5 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -0 -0 180)
+			)
+		)
 	)
 	(footprint "TestPoint:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm"
 		(layer "F.Cu")
@@ -6003,6 +6025,17 @@
 			(uuid "de3716eb-bf78-4e52-b48e-2175f6c3472b")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/components/(2x1_term)1751248/1751248.stp"
+			(offset
+				(xyz 5.5 3.5 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -0 -0 180)
+			)
+		)
 	)
 	(footprint "Resistor_SMD:R_0603_1608Metric"
 		(layer "F.Cu")
@@ -6847,6 +6880,17 @@
 			(uuid "6df99bf7-2d0a-4c1e-9134-5524926138d2")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/components/(2x1_term)1751248/1751248.stp"
+			(offset
+				(xyz -2 -3.5 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -0 -0 -0)
+			)
+		)
 	)
 	(footprint "LED_SMD:LED_0603_1608Metric"
 		(layer "F.Cu")
@@ -8973,6 +9017,17 @@
 			(uuid "689d9fc9-4645-49d6-911f-f4205debfa82")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/components/(691137710003)screw_terminal 3x1/Download_STP_691137710003_rev1.stp"
+			(offset
+				(xyz 7.5 3.5 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 -0 -90)
+			)
+		)
 	)
 	(footprint "Capacitor_SMD:C_0603_1608Metric"
 		(layer "F.Cu")
@@ -10188,6 +10243,17 @@
 			(uuid "f5e17dee-5b7e-4997-a544-68300612e229")
 		)
 		(embedded_fonts no)
+		(model "${LDOMODEL}/AZ1117IH-3.3TRG1.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 -0 -0)
+			)
+		)
 	)
 	(footprint "TestPoint:TestPoint_2Pads_Pitch2.54mm_Drill0.8mm"
 		(layer "F.Cu")
@@ -12388,6 +12454,17 @@
 			(uuid "5de25283-00d9-4137-933a-384580f06f3a")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/components/(691137710003)screw_terminal 3x1/Download_STP_691137710003_rev1.stp"
+			(offset
+				(xyz -7.5 -4 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 -0 90)
+			)
+		)
 	)
 	(footprint "TestPoint:TestPoint_Pad_3.0x3.0mm"
 		(layer "F.Cu")
@@ -14032,7 +14109,7 @@
 			(uuid "21604b06-38ef-42e3-977a-10a08c35d287")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Connector_PinHeader_2.54mm.3dshapes/PinHeader_1x04_P2.54mm_Vertical.step"
+		(model "${KICAD9_3DMODEL_DIR}/Connector_PinSocket_2.54mm.3dshapes/PinSocket_1x04_P2.54mm_Vertical.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -15326,7 +15403,7 @@
 			(uuid "a15f2a0b-d0e4-4438-9da5-f1a59036f677")
 		)
 		(embedded_fonts no)
-		(model "${IMU_TERM}/c-284414-6-c-3d.stp"
+		(model "${KIPRJMOD}/components/(imuterm)284414_6/c-284414-6-c-3d.stp"
 			(offset
 				(xyz 9 -0.5 8)
 			)

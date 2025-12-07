@@ -4,6 +4,9 @@
 	(generator_version "9.0")
 	(uuid "968afccf-5679-4319-8b9b-7f0dcdfc2d51")
 	(paper "A4")
+	(title_block
+		(title "Chestplate PCB")
+	)
 	(lib_symbols)
 	(text "IR Emitter \nhttps://learn.adafruit.com/adafruit-high-power-infrared-led-emitter\nUsed for transmitting hit affect to target. \nPWM from proton."
 		(exclude_from_sim no)
