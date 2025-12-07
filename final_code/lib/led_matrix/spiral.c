@@ -7,7 +7,6 @@
 
 #define FRAME_INTERVAL_US 20000
 
-// UPDATED: Function signature
 void spiral(int width, int height, const spiral_params_t* params) {
     
     // UPDATED: Read parameters from struct
