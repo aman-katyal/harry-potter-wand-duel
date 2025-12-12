@@ -1,7 +1,6 @@
 #ifndef CIRCLE_EXPLOSION_H
 #define CIRCLE_EXPLOSION_H
 #include <stdint.h>
-#include <stdbool.h>
 
 typedef struct {
     int color_mode;
@@ -11,7 +10,6 @@ typedef struct {
     float ring_thickness;
 } circle_explosion_params_t;
 
-void circle_explosion_start(const circle_explosion_params_t* params);
-bool circle_explosion_update(void);
+void circle_explosion(int width, int height, const circle_explosion_params_t* params);
 
 #endif

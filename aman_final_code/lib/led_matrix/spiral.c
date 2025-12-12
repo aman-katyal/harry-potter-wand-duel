@@ -1,88 +1,99 @@
 #include "spiral.h"
 #include "ws2812.h"
+#include "pico/stdlib.h"
+#include "hardware/dma.h"
 #include <math.h>
-#include <string.h>
+#include <stdlib.h>
 
-#ifndef M_PI
-#define M_PI 3.14159265f
-#endif
+#define FRAME_INTERVAL_US 20000
 
-static spiral_params_t p;
-static int frame_idx = 0;
-static float angle_offset = 0.0f;
-static enum { SP_RUN, SP_FADE } state;
+// UPDATED: Function signature
+void spiral(int width, int height, const spiral_params_t* params) {
+    
+    // UPDATED: Read parameters from struct
+    int color_mode = params->color_mode;
+    int intensity = params->intensity;
+    const float speed = params->speed;
+    const float spiral_gap = params->spiral_gap;
 
-void spiral_start(const spiral_params_t* params) {
-    memcpy(&p, params, sizeof(spiral_params_t));
-    frame_idx = 0;
-    angle_offset = 0.0f;
-    state = SP_RUN;
-}
+    const float cx = (width - 1) / 2.0f;
+    const float cy = (height - 1) / 2.0f;
 
-static void apply_fade(int factor) {
-    uint32_t* buf = ws2812_get_buffer();
-    for (int i = 0; i < NUM_LEDS; ++i) {
-        uint32_t c = buf[i];
-        uint8_t r = (c >> 16) & 0xFF;
-        uint8_t b = (c >> 8)  & 0xFF;
-        uint8_t g =  c        & 0xFF;
-        r = (uint8_t)((r * factor) / 255);
-        g = (uint8_t)((g * factor) / 255);
-        b = (uint8_t)((b * factor) / 255);
-        buf[i] = ((uint32_t)r << 16) | ((uint32_t)b << 8) | g;
-    }
-}
+    float angle_offset = 0.0f;
 
-bool spiral_update(void) {
-    if (state == SP_FADE) {
-        apply_fade(220); // Fixed fade for spiral
-        ws2812_update();
-        frame_idx++;
-        return (frame_idx >= 30);
-    }
+    // --- MAIN LOOP ---
+    // UPDATED: Use 'num_frames' from params
+    for (int frame = 0; frame < params->num_frames; frame++) {
+        uint32_t* buf = ws2812_get_buffer();
 
-    // RUN state
-    ws2812_clear(); // Spiral clears frame every time unlike firework
+        // clear frame
+        for (int i = 0; i < width * height; i++) {
+            buf[i] = 0;
+        }
 
-    int width = 16, height = 16;
-    float cx = (width - 1) / 2.0f;
-    float cy = (height - 1) / 2.0f;
+        // draw spiral
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                float dx = x - cx;
+                float dy = y - cy;
+                float dist = sqrtf(dx * dx + dy * dy);
+                float angle = atan2f(dy, dx);
 
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            float dx = x - cx;
-            float dy = y - cy;
-            float dist = sqrtf(dx * dx + dy * dy);
-            float angle = atan2f(dy, dx);
-            if (angle < 0) angle += 2.0f * M_PI;
+                if (angle < 0) angle += 2.0f * (float)M_PI;
 
-            float spiral_pos = angle + dist / p.spiral_gap + angle_offset;
-            float wave = fmodf(spiral_pos, 2.0f * M_PI);
-            float brightness = cosf(wave) * 0.5f + 0.5f;
+                // Use 'spiral_gap' from params
+                float spiral_pos = angle + dist / spiral_gap + angle_offset;
+                float wave = fmodf(spiral_pos, 2.0f * (float)M_PI);
+                float brightness = cosf(wave) * 0.5f + 0.5f;
 
-            if (brightness > 0.6f) {
-                uint8_t r=0, g=0, b=0;
-                int imode = p.color_mode % 3;
-                if (imode == 0) b = (uint8_t)(brightness * p.intensity);
-                else if (imode == 1) r = (uint8_t)(brightness * p.intensity);
-                else { r = (uint8_t)(brightness * p.intensity); b = (uint8_t)(brightness * p.intensity * 0.6f); }
+                if (brightness > 0.6f) {
+                    uint8_t r = 0, g = 0, b = 0;
 
-                int index = (y % 2 == 0) ? y * width + x : y * width + (width - 1 - x);
-                ws2812_set_pixel_color(index, r, g, b);
+                    // Use 'color_mode' and 'intensity' from params
+                    switch (color_mode % 3) {
+                        case 0: b = (uint8_t)(brightness * intensity); break;
+                        case 1: r = (uint8_t)(brightness * intensity); break;
+                        case 2: r = (uint8_t)(brightness * intensity);
+                                b = (uint8_t)(brightness * (intensity * 0.6f)); break;
+                    }
+
+                    int index = (y % 2 == 0)
+                        ? y * width + x
+                        : y * width + (width - 1 - x);
+
+                    ws2812_set_pixel_color(index, r, g, b);
+                }
             }
         }
+
+        ws2812_update();
+        
+        sleep_us(FRAME_INTERVAL_US);
+
+        // Use 'speed' from params
+        angle_offset += speed;
+        if (angle_offset > 2.0f * (float)M_PI)
+            angle_offset -= 2.0f * (float)M_PI;
     }
 
-    ws2812_update();
+    // --- Simple exponential fade-out loop ---
+    const int fade_factor = 220; 
+    for (int frame = 0; frame < 30; frame++) {
+        uint32_t* buf = ws2812_get_buffer();
+        for (int i = 0; i < NUM_LEDS; ++i) {
+            uint32_t color = buf[i];
 
-    angle_offset += p.speed;
-    if (angle_offset > 2.0f * M_PI) angle_offset -= 2.0f * M_PI;
+            uint8_t r = (color >> 16) & 0xFF;
+            uint8_t b = (color >> 8)  & 0xFF;
+            uint8_t g =  color        & 0xFF;
 
-    frame_idx++;
-    if (frame_idx >= p.num_frames) {
-        state = SP_FADE;
-        frame_idx = 0;
+            r = (uint8_t)((r * fade_factor) / 255);
+            g = (uint8_t)((g * fade_factor) / 255);
+            b = (uint8_t)((b * fade_factor) / 255);
+
+            buf[i] = ((uint32_t)r << 16) | ((uint32_t)b << 8) | g;
+        }
+        ws2812_update();
+        sleep_us(FRAME_INTERVAL_US);
     }
-
-    return false;
 }

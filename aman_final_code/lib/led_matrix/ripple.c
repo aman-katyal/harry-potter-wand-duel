@@ -52,7 +52,7 @@ void ripple(int color_mode, int intensity) {
 
                     int index = (y % 2 == 0)
                         ? y * WIDTH + x
-                        : y * WIDTH + (WIDTH - 1 - x); 
+                        : y * WIDTH + (WIDTH - 1 - x); // <-- This was the line with the typo
                     ws2812_set_pixel_color(index, r, g, b);
                 }
             }

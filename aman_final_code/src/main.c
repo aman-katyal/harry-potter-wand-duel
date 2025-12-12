@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @brief Dual-Core Wand Duel - Tunable Master Version (Split I2C)
+ * @brief Dual-Core Wand Duel - Receive Animations Only
  */
 
 #include <stdio.h>
@@ -12,6 +12,9 @@
 #include "pico/util/queue.h"
 #include "hardware/i2c.h"
 
+// --- Configuration ---
+#include "sys_config.h"
+
 // --- Drivers ---
 #include "bno08x_driver.h"
 #include "ei_bridge.h" 
@@ -19,65 +22,18 @@
 #include "irremote.h"
 #include "drv2605.h"
 #include "ws2812.h"
-#include "controller.h"
-#include "healthbar.h"
+#include "controller.h" 
+#include "healthbar.h"  
 
 // ===========================================================================
-// --- 1. THE "FEEL" TUNING SECTION ---
+// --- AI DATA BUFFERS ---
 // ===========================================================================
+#define WINDOW_MS 1650
+#define SAMPLES_PER_WINDOW ((WINDOW_MS * SENSOR_POLL_RATE_HZ) / 1000)
+#define AXES_COUNT 6 
+#define EI_FEATURE_SIZE (SAMPLES_PER_WINDOW * AXES_COUNT)
+#define RING_BUFFER_SIZE (3 * SENSOR_POLL_RATE_HZ * AXES_COUNT)
 
-#define AI_CONFIDENCE_THRESHOLD   0.70f  
-#define AI_ANOMALY_THRESHOLD      2.5f   
-#define CONSECUTIVE_MATCHES_REQ   2      
-#define AI_CHECK_INTERVAL_MS      200    
-#define POST_CAST_LOCKOUT_MS      2000   
-#define GAME_COOLDOWN_MS          2000   
-
-// ===========================================================================
-// --- 2. SYSTEM CONSTANTS & PINS ---
-// ===========================================================================
-#define SPELL_ID_NONE             0
-#define SPELL_ID_AGUAMENTI        1
-#define SPELL_ID_STUPEFY          2
-
-#define SAMPLING_FREQ_HZ          74
-#define SENSOR_POLL_US            (1000000 / SAMPLING_FREQ_HZ)
-
-// Window Calculation (1.65s)
-#define WINDOW_MS                 1650
-#define SAMPLES_PER_WINDOW        ((WINDOW_MS * SAMPLING_FREQ_HZ) / 1000)
-#define AXES_COUNT                6 
-#define EI_FEATURE_SIZE           (SAMPLES_PER_WINDOW * AXES_COUNT)
-#define RING_BUFFER_SIZE          (3 * SAMPLING_FREQ_HZ * AXES_COUNT)
-
-// --- PINOUT CONFIGURATION ---
-
-// I2C Bus 0: IMU (BNO08x)
-#define I2C_IMU_PORT              i2c0
-#define I2C_IMU_SDA_PIN           4
-#define I2C_IMU_SCL_PIN           5
-
-// I2C Bus 1: Haptics (DRV2605)
-#define I2C_HAPTIC_PORT           i2c1
-#define I2C_HAPTIC_SDA_PIN        2
-#define I2C_HAPTIC_SCL_PIN        3
-
-#define TX_PIN                    6
-#define RX_PIN                    16
-#define BTN_A_PIN                 21
-#define BTN_B_PIN                 26
-
-// Core 1 Stack
-#define CORE1_STACK_WORDS         4096 
-static uint32_t core1_stack[CORE1_STACK_WORDS] __attribute__((aligned(8)));
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846f
-#endif
-
-// ===========================================================================
-// --- 3. SHARED MEMORY ---
-// ===========================================================================
 static float sensor_ring_buffer[RING_BUFFER_SIZE];
 static volatile int rb_head = 0; 
 static float exchange_buffer[EI_FEATURE_SIZE];
@@ -87,8 +43,11 @@ static volatile bool ai_is_busy = false;
 static bno08x_driver_t bno08x;
 static drv2605_t haptic;
 
+// Core 1 Stack
+static uint32_t core1_stack[4096] __attribute__((aligned(8)));
+
 // ===========================================================================
-// --- 4. DATA HELPERS ---
+// --- DATA HELPERS ---
 // ===========================================================================
 void rb_push(float x, float y, float z, float r, float p, float yaw) {
     sensor_ring_buffer[rb_head++] = x; sensor_ring_buffer[rb_head++] = y;
@@ -111,140 +70,108 @@ void rb_unroll_to_exchange() {
 }
 
 // ===========================================================================
-// --- 5. CORE 1: THE BRAIN ---
+// --- CORE 1: THE BRAIN (AI) ---
 // ===========================================================================
-typedef struct {
-    uint32_t spell_id;
-    float confidence;
-    float anomaly;
-    bool detected;
-} ai_result_t;
-
 void core1_entry() {
     while (true) {
         uint32_t cmd = multicore_fifo_pop_blocking();
         if (cmd == 1) {
             spell_decision_t res = ei_bridge_run_inference(exchange_buffer, EI_FEATURE_SIZE);
             
-            ai_result_t out;
-            out.confidence = res.confidence;
-            out.anomaly = res.anomaly_score;
-            out.spell_id = SPELL_ID_NONE;
+            ai_result_t result;
+            result.parts.spell_id = SPELL_LOGIC_NONE;
+            
+            // Map Edge Impulse labels to Logic IDs
+            if (strcmp(res.label, "aguamenti") == 0) result.parts.spell_id = SPELL_LOGIC_AGUAMENTI;
+            else if (strcmp(res.label, "stupefy") == 0) result.parts.spell_id = SPELL_LOGIC_STUPEFY;
 
-            // Mapping strings to IDs
-            if (strcmp(res.label, "aguamenti") == 0) out.spell_id = SPELL_ID_AGUAMENTI;
-            else if (strcmp(res.label, "stupefy") == 0) out.spell_id = SPELL_ID_STUPEFY;
+            result.parts.confidence = (uint8_t)(res.confidence * 100);
+            
+            // Clamp anomaly to 10.0 max, then scale by 10 (2.5 -> 25)
+            float anom_clamped = (res.anomaly_score > 10.0f) ? 10.0f : res.anomaly_score;
+            result.parts.anomaly = (uint8_t)(anom_clamped * 10); 
 
-            multicore_fifo_push_blocking(out.spell_id);
-            multicore_fifo_push_blocking((uint32_t)(out.confidence * 100));
-            multicore_fifo_push_blocking((uint32_t)(out.anomaly * 100));
+            multicore_fifo_push_blocking(result.packed);
         }
     }
 }
 
 // ===========================================================================
-// --- 6. CORE 0: THE BODY (Init & Loop) ---
+// --- CORE 0: THE BODY (Game Loop) ---
 // ===========================================================================
 int main() {
     stdio_init_all();
-    sleep_ms(3000); 
+    sleep_ms(2000); 
     printf("=== WAND SYSTEM BOOT ===\n");
-    printf("IMU: I2C0 (4,5) | Haptic: I2C1 (2,3) | IR: 6,16\n");
 
-    // --- 1. Init Main I2C (IMU) ---
-    printf("Init: IMU I2C...");
+    // --- 1. Init Hardware ---
     i2c_init(I2C_IMU_PORT, 400 * 1000);
-    gpio_set_function(I2C_IMU_SDA_PIN, GPIO_FUNC_I2C);
-    gpio_set_function(I2C_IMU_SCL_PIN, GPIO_FUNC_I2C);
-    gpio_pull_up(I2C_IMU_SDA_PIN);
-    gpio_pull_up(I2C_IMU_SCL_PIN);
-    printf("OK\n");
+    gpio_set_function(PIN_IMU_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(PIN_IMU_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(PIN_IMU_SDA);
+    gpio_pull_up(PIN_IMU_SCL);
 
-    // --- 2. Init Haptic I2C (Secondary) ---
-    printf("Init: Haptic I2C...");
     i2c_init(I2C_HAPTIC_PORT, 400 * 1000);
-    gpio_set_function(I2C_HAPTIC_SDA_PIN, GPIO_FUNC_I2C);
-    gpio_set_function(I2C_HAPTIC_SCL_PIN, GPIO_FUNC_I2C);
-    gpio_pull_up(I2C_HAPTIC_SDA_PIN);
-    gpio_pull_up(I2C_HAPTIC_SCL_PIN);
-    printf("OK\n");
+    gpio_set_function(PIN_HAPTIC_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(PIN_HAPTIC_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(PIN_HAPTIC_SDA);
+    gpio_pull_up(PIN_HAPTIC_SCL);
 
-    // --- 3. Init Haptics (Soft Fail) ---
-    printf("Init: Haptics Driver...\n");
-    // Pass the SECOND I2C port (I2C_HAPTIC_PORT) here
-    if (drv2605_init(&haptic, I2C_HAPTIC_PORT, I2C_HAPTIC_SDA_PIN, I2C_HAPTIC_SCL_PIN)) {
+    if (drv2605_init(&haptic, I2C_HAPTIC_PORT, PIN_HAPTIC_SDA, PIN_HAPTIC_SCL)) {
         drv2605_set_mode(&haptic, DRV2605_MODE_INTTRIG);
         drv2605_select_library(&haptic, 1);
-        printf("Haptics OK\n");
-    } else {
-        printf("Haptics SKIP (Not Connected)\n");
     }
-    
-    // --- 4. Init LEDs ---
-    printf("Init: LEDs...\n");
-    controller_init(); 
-    printf("LEDs OK\n");
 
-    // --- 5. Init IMU (Critical) ---
-    printf("Init: IMU Driver...\n");
+    ws2812_init(); 
+    ws2812_clear();
+    hb_init(MATRIX_WIDTH, MATRIX_HEIGHT);
+    hb_draw(); 
+
     if (!bno08x_begin_i2c(&bno08x, I2C_IMU_PORT, BNO08x_I2CADDR_DEFAULT, -1)) {
         printf("IMU FAIL!\n");
+        ws2812_fill(50, 0, 0); ws2812_update();
         while(1) { sleep_ms(100); } 
     }
-    printf("IMU OK\n");
-    
     bno08x_enable_report(&bno08x, SH2_ARVR_STABILIZED_RV, SENSOR_POLL_US);
     bno08x_enable_report(&bno08x, SH2_ACCELEROMETER, SENSOR_POLL_US);
 
-    // --- 6. Init IR ---
-    printf("Init: IR...\n");
-    ir_emitter_init(TX_PIN); 
-    ir_receiver_init(RX_PIN);
-    printf("IR OK\n");
+    ir_emitter_init(PIN_IR_TX); 
+    ir_receiver_init(PIN_IR_RX);
 
-    // --- 7. Init Core 1 ---
-    printf("Launching Core 1...\n");
     multicore_launch_core1_with_stack(core1_entry, core1_stack, sizeof(core1_stack));
-    printf("Core 1 Launched\n");
 
-    hb_init(16, 16); 
-    hb_draw();
-
-    // --- State Variables ---
+    // --- Game State ---
     uint64_t last_poll_time = 0;
     uint64_t last_ai_check = 0;
     uint64_t next_valid_cast_time = 0; 
-    
-    uint32_t pending_spell_id = SPELL_ID_NONE;
-    int      consecutive_matches = 0;
+
+    uint32_t candidate_spell = SPELL_LOGIC_NONE;
+    int      spell_score = 0;
 
     sh2_SensorValue_t val;
     sh2_Accelerometer_t acc = {0};
     struct { float y, p, r; } ypr = {0};
 
-    printf("=== SYSTEM READY ===\n");
+    printf("=== READY ===\n");
 
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
         uint64_t now_ms = now_us / 1000;
 
-        // -----------------------------------------------------------
-        // 1. SENSOR POLLING (74Hz)
-        // -----------------------------------------------------------
+        // 1. POLLING
         if (now_us - last_poll_time >= SENSOR_POLL_US) {
             last_poll_time = now_us;
             while (bno08x_get_sensor_event(&bno08x, &val)) {
                 if (val.sensorId == SH2_ARVR_STABILIZED_RV) {
-                    float qr = val.un.arvrStabilizedRV.real;
-                    float qi = val.un.arvrStabilizedRV.i;
-                    float qj = val.un.arvrStabilizedRV.j;
-                    float qk = val.un.arvrStabilizedRV.k;
-                    float sqr = qr*qr, sqi = qi*qi, sqj = qj*qj, sqk = qk*qk;
-                    ypr.y = atan2f(2.0f * (qi * qj + qk * qr), (sqi - sqj - sqk + sqr));
-                    ypr.p = asinf(-2.0f * (qi * qk - qj * qr) / (sqi + sqj + sqk + sqr));
-                    ypr.r = atan2f(2.0f * (qj * qk + qi * qr), (-sqi - sqj + sqk + sqr));
-                    float r2d = 180.0f / M_PI;
-                    ypr.y *= r2d; ypr.p *= r2d; ypr.r *= r2d;
+                     float qr = val.un.arvrStabilizedRV.real;
+                     float qi = val.un.arvrStabilizedRV.i;
+                     float qj = val.un.arvrStabilizedRV.j;
+                     float qk = val.un.arvrStabilizedRV.k;
+                     float sqr = qr*qr, sqi = qi*qi, sqj = qj*qj, sqk = qk*qk;
+                     ypr.y = atan2f(2.0f * (qi * qj + qk * qr), (sqi - sqj - sqk + sqr));
+                     ypr.p = asinf(-2.0f * (qi * qk - qj * qr) / (sqi + sqj + sqk + sqr));
+                     ypr.r = atan2f(2.0f * (qj * qk + qi * qr), (-sqi - sqj + sqk + sqr));
+                     ypr.y *= 57.29578f; ypr.p *= 57.29578f; ypr.r *= 57.29578f;
                 } else if (val.sensorId == SH2_ACCELEROMETER) {
                     acc = val.un.accelerometer;
                 }
@@ -252,9 +179,7 @@ int main() {
             rb_push(acc.x, acc.y, acc.z, ypr.r, ypr.p, ypr.y);
         }
 
-        // -----------------------------------------------------------
         // 2. AI TRIGGER
-        // -----------------------------------------------------------
         if (!ai_is_busy && (now_ms - last_ai_check >= AI_CHECK_INTERVAL_MS)) {
             if (now_ms >= next_valid_cast_time) {
                 rb_unroll_to_exchange();
@@ -264,69 +189,94 @@ int main() {
             }
         }
 
-        // -----------------------------------------------------------
-        // 3. AI RESULT
-        // -----------------------------------------------------------
+        // 3. CASTING LOGIC
         if (multicore_fifo_rvalid()) {
-            uint32_t raw_id = multicore_fifo_pop_blocking();
-            uint32_t raw_conf = multicore_fifo_pop_blocking();
-            uint32_t raw_anom = multicore_fifo_pop_blocking();
+            uint32_t packed = multicore_fifo_pop_blocking();
             ai_is_busy = false;
 
-            float confidence = (float)raw_conf / 100.0f;
-            float anomaly = (float)raw_anom / 100.0f;
-
-            printf("AI: ID=%lu | Conf=%.2f | Anom=%.2f ", raw_id, confidence, anomaly);
-
-            bool match = false;
-            if (confidence >= AI_CONFIDENCE_THRESHOLD && anomaly <= AI_ANOMALY_THRESHOLD) {
-                if (raw_id != SPELL_ID_NONE) {
-                    match = true;
-                    if (raw_id == pending_spell_id) {
-                        consecutive_matches++;
-                        printf("[MATCH %d/%d]\n", consecutive_matches, CONSECUTIVE_MATCHES_REQ);
-                    } else {
-                        pending_spell_id = raw_id;
-                        consecutive_matches = 1;
-                        printf("[NEW DETECT]\n");
-                    }
-                }
-            } 
+            ai_result_t res;
+            res.packed = packed;
             
-            if (!match) {
-                consecutive_matches = 0;
-                pending_spell_id = SPELL_ID_NONE;
-                printf("[NOPE]\n");
+            float confidence = res.parts.confidence / 100.0f;
+            float anomaly    = res.parts.anomaly / 10.0f;
+            uint8_t detected_id = res.parts.spell_id;
+
+            float anomaly_limit = 100.0f; 
+            if (detected_id == SPELL_LOGIC_AGUAMENTI) {
+                anomaly_limit = ANOMALY_THRESH_AGUAMENTI;
+            } else if (detected_id == SPELL_LOGIC_STUPEFY) {
+                anomaly_limit = ANOMALY_THRESH_STUPEFY;
             }
 
-            if (consecutive_matches >= CONSECUTIVE_MATCHES_REQ) {
-                printf(">>> FIRE SPELL %lu!\n", pending_spell_id);
-                if (drv2605_is_playing(&haptic)) drv2605_play_cast_feedback(&haptic); 
-                ir_emitter_start(2, (uint8_t)pending_spell_id, 3);
-                controller_start_spell((uint8_t)pending_spell_id);
+            bool is_valid = (confidence >= AI_CONFIDENCE_THRESHOLD) && (anomaly <= anomaly_limit);
 
-                consecutive_matches = 0;
-                pending_spell_id = SPELL_ID_NONE;
+            if (is_valid && detected_id != SPELL_LOGIC_NONE) {
+                if (detected_id == candidate_spell) {
+                    spell_score++;
+                } else {
+                    candidate_spell = detected_id;
+                    spell_score = 1;
+                }
+            } else {
+                if (spell_score > 0) spell_score -= SPELL_DECAY_RATE;
+            }
+
+            // FIRE SPELL
+            if (spell_score >= SPELL_TRIGGER_TARGET) {
+                printf(">>> CAST SPELL %d! <<<\n", (int)candidate_spell);
+                
+                // Feedback: Haptics Only
+                if (drv2605_is_playing(&haptic)) drv2605_play_cast_feedback(&haptic);
+                
+                // IR Transmission
+                uint8_t ir_cmd = (candidate_spell == SPELL_LOGIC_AGUAMENTI) ? 10 : 20; 
+                ir_emitter_start(2, ir_cmd, 3);
+                
+                // Note: Animation REMOVED from here per user request. 
+                // We only animate when we RECEIVE a spell.
+
+                spell_score = 0;
+                candidate_spell = SPELL_LOGIC_NONE;
                 next_valid_cast_time = now_ms + POST_CAST_LOCKOUT_MS;
             }
         }
 
-        // -----------------------------------------------------------
-        // 4. NON-BLOCKING IO
-        // -----------------------------------------------------------
+        // 4. HIT LOGIC (RECEIVE)
         ir_decoded_data_t rx_data;
         if (ir_receiver_decode(&rx_data)) {
-            if (rx_data.protocol == IR_PROTOCOL_NEC && rx_data.address == 1) { 
-                printf(">>> HIT! Cmd: %d\n", rx_data.command);
+            if (rx_data.protocol == IR_PROTOCOL_NEC) {
+                printf("HIT by Cmd: %d\n", rx_data.command);
+                
                 if (drv2605_is_playing(&haptic)) drv2605_play_hit_feedback(&haptic);
-                hb_update(-1); hb_draw();
-                ws2812_fill(255, 0, 0); ws2812_update(); 
-                sleep_ms(50); ws2812_clear();
+                
+                // Take Damage
+                hb_update(-2); 
+                
+                // --- PLAY ANIMATION BASED ON RECEIVED SPELL ---
+                ws2812_clear();
+                
+                if (rx_data.command == 10) {
+                    // Received Aguamenti (Water/Blue)
+                    controller(2, MATRIX_WIDTH, MATRIX_HEIGHT);
+                } 
+                else if (rx_data.command == 20) {
+                    // Received Stupefy (Red)
+                    controller(1, MATRIX_WIDTH, MATRIX_HEIGHT);
+                }
+                
+                // Check Death
+                if (hb_current() <= 0) {
+                    loser_screen(MATRIX_WIDTH, MATRIX_HEIGHT);
+                    sleep_ms(2000);
+                    hb_reset();
+                }
+                
+                // Restore Health Bar
+                hb_draw();
             }
+            ir_receiver_resume();
         }
-        
+
         ir_emitter_update();
-        controller_update(); 
-        sleep_ms(1);
     }
 }

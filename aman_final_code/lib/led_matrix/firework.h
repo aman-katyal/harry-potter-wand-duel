@@ -2,7 +2,8 @@
 #define FIREWORK_ANIMATION_H
 
 #include <stdint.h>
-#include <stdbool.h>
+
+#define FRAME_INTERVAL_US 9000 
 
 typedef struct {
     int color_mode;
@@ -15,10 +16,6 @@ typedef struct {
     float core_radius;
 } firework_params_t;
 
-// Setup the animation state (non-blocking)
-void firework_start(const firework_params_t* params);
-
-// Draw one frame. Returns true when animation is complete.
-bool firework_update(void);
+void firework(int width, int height, const firework_params_t* params);
 
 #endif

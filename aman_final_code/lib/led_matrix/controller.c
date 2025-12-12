@@ -1,67 +1,56 @@
 #include "controller.h"
 #include "ws2812.h"
-#include "pico/time.h"
-
-// Include your animation headers
-// (You will need to update these .h files to expose _start and _update functions)
+// Animation Headers
 #include "firework.h"
 #include "spiral.h"
 #include "circle_explosion.h"
+#include "blue_shield.h"
+#include "heal.h" 
+#include "animation_params.h"
 
-// Configuration
-#define FRAME_DELAY_MS 33  // ~30 FPS
+void controller(uint8_t spell_num, int width, int height) 
+{
+    // Ensure we are in rotation mode 1 (90 degrees) for your matrix setup
+    ws2812_set_rotation(1); 
 
-// State
-static uint8_t current_anim = 0;
-static bool is_anim_running = false;
-static uint64_t last_frame_time = 0;
-
-void controller_init() {
-    ws2812_clear();
-}
-
-void controller_start_spell(uint8_t spell_num) {
-    current_anim = spell_num;
-    is_anim_running = true;
-    
-    // Reset/Start the specific animation
     switch (spell_num) {
-        case 1: // Aguamenti
-            // firework_start(BLUE); // Example of what you need in firework.c
+        // --- Spell 0: Shield (Reserved for Button) ---
+        case 0:
+            blue_shield_run(width, height, &SHIELD_DEFAULT_CONFIG);
             break;
-        case 2: // Stupefy
-            // firework_start(RED);
+
+        // --- Spell 1: Stupefy (Red Firework) ---
+        case 1:
+            firework(width, height, &FIREWORK_DEFAULT_RED);
             break;
+
+        // --- Spell 2: Aguamenti (Blue Firework) ---
+        case 2:
+            firework(width, height, &FIREWORK_DEFAULT_BLUE);
+            break;
+
+        // --- Spell 3: Misc (Magenta Firework) ---
+        case 3:
+            firework(width, height, &FIREWORK_DEFAULT_MAGENTA);
+            break;
+
+        // --- Spell 4: Spiral ---
+        case 4:
+            spiral(width, height, &SPIRAL_DEFAULT_RED);
+            break;
+
+        // --- Spell 5: Explosion ---
+        case 5:
+            circle_explosion(width, height, &EXPLOSION_DEFAULT_CYAN);
+            break;
+
+        // --- Spell 6: Heal ---
+        case 6:
+            heal_run(width, height, &HEAL_DEFAULT_CONFIG);
+            break;
+
         default:
-            is_anim_running = false;
             ws2812_clear();
             break;
-    }
-}
-
-void controller_update() {
-    if (!is_anim_running) return;
-
-    // Non-blocking timer check
-    uint64_t now = to_ms_since_boot(get_absolute_time());
-    if (now - last_frame_time < FRAME_DELAY_MS) return;
-    last_frame_time = now;
-
-    // Dispatch to the active animation
-    bool finished = false;
-    
-    switch (current_anim) {
-        case 1: 
-        case 2:
-            // finished = firework_update(); // Should return true when done
-            break;
-            
-        // Add other cases...
-    }
-
-    // If animation reports it's done, stop updating
-    if (finished) {
-        is_anim_running = false;
-        ws2812_clear();
     }
 }
