@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "sh2_sensorvalue.h": "c",
+        "watchdog.h": "c"
+    }
+}
