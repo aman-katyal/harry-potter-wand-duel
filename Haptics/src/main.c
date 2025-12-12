@@ -2,8 +2,8 @@
 #include "pico/stdlib.h"
 #include "drv2605.h"
 
-#define I2C_SDA 16
-#define I2C_SCL 17
+#define I2C_SDA 4
+#define I2C_SCL 5
 
 int main() {
     stdio_init_all();
