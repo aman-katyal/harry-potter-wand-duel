@@ -1,61 +1,44 @@
 #include "pico/stdlib.h"
-#include "hardware/dma.h"
 #include "ws2812.h"
 #include "controller.h"
-#include "healthbar.h"
 
+// Define Matrix Dimensions
 #define WIDTH  16
 #define HEIGHT 16
 
+// Prototype for the timer function (assuming it is defined in another .c file)
+void run_big_timer(int start_seconds);
+
 int main() {
+    // 1. Initialize Standard IO and LED Driver
     stdio_init_all();
     ws2812_init();
 
-    hb_init(WIDTH, HEIGHT);
-    
-    // Start by showing the health bar
-    hb_draw();
-    sleep_ms(300);
-
-    uint8_t spell = 0;
-
     while (true) {
-
-        // 1. Apply damage BEFORE animation (only once per spell)
-        switch (spell) {
-            case 0:
-            case 1:
-            case 2:
-                hb_update(-2);   // fireworks
-                break;
-            case 3:
-                hb_update(-1);   // spiral
-                break;
-            case 4:
-                hb_update(-3);   // explosion
-                break;
-        }
-
-        // 2. If dead → show loser screen + reset
-        if (hb_current() == 0) {
-            loser_screen(WIDTH, HEIGHT);
-            sleep_ms(800);
-            hb_reset();
-        }
-
-        // 3. Clear the screen *before* the animation
-        ws2812_clear();
-
-        // 4. Now run the animation (on a blank screen)
-        controller(spell, WIDTH, HEIGHT);
-
-        // 5. Animation is done, draw *only* the health bar
-        hb_draw();
-
-        // 6. Next spell
-        spell++;
-        if (spell > 4) spell = 0;
+        // --- Cycle through all spells defined in controller.c ---
+        // 0: Blue Shield
+        // 1: Firework (Red)
+        // 2: Firework (Blue)
+        // 3: Firework (Magenta)
+        // 4: Spiral
+        // 5: Circle Explosion
+        // 6: Heal (Heart)
+        
+        for (int spell_id = 0; spell_id <= 6; spell_id++) {
+            // The controller handles the params and execution
+            controller(6, WIDTH, HEIGHT);
             
-        sleep_ms(500);
+            // Small delay between animations
+            sleep_ms(500);
+        }
+
+        // --- Test the Timer separately ---
+        // (Since it's not currently in the controller switch-case)
+        run_big_timer(5); 
+
+        // Wait before restarting the loop
+        sleep_ms(1000);
     }
+
+    return 0;
 }

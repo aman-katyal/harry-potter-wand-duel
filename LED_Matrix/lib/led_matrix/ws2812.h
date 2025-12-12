@@ -24,4 +24,7 @@ void ws2812_update(void);
 // Pointers for the DMA system
 uint32_t* ws2812_get_buffer(void);
 
+void ws2812_set_rotation(int rotation);
+void ws2812_draw_pixel(int x, int y, int width, int height, uint8_t r, uint8_t g, uint8_t b);
+
 #endif // WS2812_H

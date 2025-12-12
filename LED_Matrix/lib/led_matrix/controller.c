@@ -1,16 +1,15 @@
 #include "controller.h"
 #include "ws2812.h"
 
-// NEW: Include all animation headers
+// Animation Headers
 #include "firework.h"
 #include "spiral.h"
 #include "circle_explosion.h"
+#include "blue_shield.h"
+#include "heal.h" // Include the Heart/Heal animation
 
-// NEW: Include your new config file
+// Configuration Header
 #include "animation_params.h"
-
-// DELETED: We no longer need pick_color or pick_intensity here.
-// They are now part of the animation_params.c file.
 
 // ---------------------------------------------------------
 // ANIMATION CONTROLLER
@@ -18,32 +17,48 @@
 
 void controller(uint8_t spell_num, int width, int height) 
 {
-    // UPDATED: This switch now calls the animation function
-    // with the corresponding "default params" struct.
+    // 1. Set Global Rotation
+    // 0 = Normal
+    // 1 = 90 Degree Rotation (Corrected logic)
+    ws2812_set_rotation(1); 
+
+    // 2. Select Animation
     switch (spell_num) {
 
-        // FIREWORKS (spells 0, 1, 2)
+        // --- DEFENSE SPELLS ---
         case 0:
-            firework(width, height, &FIREWORK_DEFAULT_BLUE);
+            // Blue Shield (Protective Spell)
+            blue_shield_run(width, height, &SHIELD_DEFAULT_CONFIG); 
             break;
+            
+        // --- ATTACK SPELLS (Fireworks) ---
         case 1:
             firework(width, height, &FIREWORK_DEFAULT_RED);
             break;
         case 2:
+            firework(width, height, &FIREWORK_DEFAULT_BLUE);
+            break;
+        case 3:
             firework(width, height, &FIREWORK_DEFAULT_MAGENTA);
             break;
 
-        // SPIRAL (spell 3)
-        case 3:
+        // --- SPECIALTY SPELLS ---
+        case 4:
+            // Spiral
             spiral(width, height, &SPIRAL_DEFAULT_RED);
             break;
 
-        // CIRCLE EXPLOSION (spell 4)
-        case 4:
+        case 5:
+            // Circle Explosion (Cyan)
             circle_explosion(width, height, &EXPLOSION_DEFAULT_CYAN);
             break;
 
-        // DEFAULT — clear LEDs
+        case 6:
+            // Healing Heart
+            heal_run(width, height, &HEAL_DEFAULT_CONFIG);
+            break;
+
+        // --- DEFAULT ---
         default:
             ws2812_clear();
             break;

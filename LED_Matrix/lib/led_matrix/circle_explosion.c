@@ -7,10 +7,9 @@
 
 #define CIRCLE_FRAME_INTERVAL_US 15000
 
-// UPDATED: Function signature
 void circle_explosion(int width, int height, const circle_explosion_params_t* params)
 {
-    // UPDATED: Read parameters from struct
+    // Read parameters from struct
     int color_mode = params->color_mode % 3;
     int intensity = params->intensity;
     const float growth_speed = params->growth_speed;
@@ -26,10 +25,11 @@ void circle_explosion(int width, int height, const circle_explosion_params_t* pa
     // This fade_factor is for the per-frame fade, not the final fade-out
     const int fade_factor = 225;
 
-    // UPDATED: Use 'num_frames' from params
     for (int frame = 0; frame < params->num_frames; frame++)
     {
         // --- Step 1: Fade previous pixels ---
+        // We act directly on the buffer here for speed. 
+        // Rotation doesn't matter for fading (it just dims whatever led is at index i).
         uint32_t* buf = ws2812_get_buffer();
 
         for (int i = 0; i < NUM_LEDS; i++) {
@@ -53,16 +53,13 @@ void circle_explosion(int width, int height, const circle_explosion_params_t* pa
                 float dy = y - cy;
                 float dist = sqrtf(dx*dx + dy*dy);
 
-                // Use 'ring_thickness' from params
                 if (fabsf(dist - radius) < ring_thickness)
                 {
                     float fade = 1.0f - fabsf(dist - radius);
-                    // Use 'intensity' from params
                     float brightness = fade * (intensity / 255.0f);
 
                     uint8_t r = 0, g = 0, b = 0;
 
-                    // Use 'color_mode' from params
                     switch (color_mode) {
                         case 0:  // Blue ring
                             b = (uint8_t)(brightness * 255.0f);
@@ -77,12 +74,9 @@ void circle_explosion(int width, int height, const circle_explosion_params_t* pa
                             break;
                     }
 
-                    int index =
-                        (y % 2 == 0)
-                        ? (y * width + x)
-                        : (y * width + (width - 1 - x));
-
-                    ws2812_set_pixel_color(index, r, g, b);
+                    // UPDATED: Use centralized driver logic
+                    // This handles ZigZag and Rotation automatically
+                    ws2812_draw_pixel(x, y, width, height, r, g, b);
                 }
             }
         }
@@ -92,7 +86,6 @@ void circle_explosion(int width, int height, const circle_explosion_params_t* pa
         sleep_us(CIRCLE_FRAME_INTERVAL_US);
 
         // --- Step 4: Animate radius ---
-        // Use 'growth_speed' from params
         radius += (expanding ? growth_speed : -growth_speed);
 
         if (radius >= max_radius)

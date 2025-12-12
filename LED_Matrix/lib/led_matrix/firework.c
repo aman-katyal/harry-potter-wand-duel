@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include "hardware/dma.h"
 
+#define FRAME_INTERVAL_US 15000
+
 // UPDATED: Function signature now takes a const pointer to the params struct
 void firework(int width, int height, const firework_params_t* params) {
     
@@ -16,7 +18,7 @@ void firework(int width, int height, const firework_params_t* params) {
     const float cy = (height - 1) / 2.0f;
 
     float radius = 0.5f;
-    const float max_radius   = 7.0f; // This could also be added to the struct later!
+    const float max_radius   = 7.0f; 
 
     // UPDATED: Parameters read from struct
     const float growth_speed = params->growth_speed;
@@ -26,7 +28,7 @@ void firework(int width, int height, const firework_params_t* params) {
     const float thinness    = params->thinness;
     const float core_radius = params->core_radius;
 
-    // Use 'spikes' variable from params
+    // Use 'spikes' variable from params (VLA)
     float ray_brightness[spikes];
     for (int i = 0; i < spikes; i++)
         ray_brightness[i] = 0.7f + (rand() % 30) / 100.0f;
@@ -34,7 +36,7 @@ void firework(int width, int height, const firework_params_t* params) {
     // UPDATED: Use 'num_frames' from params
     for (int frame = 0; frame < params->num_frames; frame++) {
 
-        // --- Fade previous frame (RBG-aware) ---
+        // --- Fade previous frame (Direct buffer access is fine here) ---
         uint32_t* buf = ws2812_get_buffer();
         for (int i = 0; i < NUM_LEDS; ++i) {
             uint32_t color = buf[i];
@@ -67,14 +69,11 @@ void firework(int width, int height, const firework_params_t* params) {
                 float delta     = fabsf(angle - ray_angle);
                 if (delta > (float)M_PI) delta = fabsf(delta - 2.0f * (float)M_PI);
 
-                // Use 'thinness' from params
                 if (delta < thinness && fabsf(dist - radius) < 0.6f) {
                     float fade = 1.0f - fabsf(dist - radius);
-                    // Use 'intensity' from params
                     float brightness = fade * ray_brightness[ray_idx] * (intensity / 255.0f);
 
                     uint8_t r = 0, g = 0, b = 0;
-                    // Use 'color_mode' from params
                     switch (color_mode) {
                         case 0:  // Blue
                             b = (uint8_t)(brightness * 220.0f);
@@ -89,11 +88,8 @@ void firework(int width, int height, const firework_params_t* params) {
                             break;
                     }
 
-                    int index = (y % 2 == 0)
-                        ? y * width + x
-                        : y * width + (width - 1 - x);
-
-                    ws2812_set_pixel_color(index, r, g, b);
+                    // UPDATED: Use centralized driver logic
+                    ws2812_draw_pixel(x, y, width, height, r, g, b);
                 }
             }
         }
@@ -103,14 +99,12 @@ void firework(int width, int height, const firework_params_t* params) {
             for (int x = 0; x < width; ++x) {
                 float dx = x - cx, dy = y - cy;
                 float dist = sqrtf(dx * dx + dy * dy);
-                // Use 'core_radius' from params
+                
                 if (dist <= core_radius) {
                     float fade = 1.0f - (dist / core_radius);
-                    // Use 'intensity' from params
                     float brightness = fade * (intensity / 255.0f);
 
                     uint8_t r = 0, g = 0, b = 0;
-                    // Use 'color_mode' from params
                     switch (color_mode) {
                         case 0:  
                             b = (uint8_t)(brightness * 120.0f);
@@ -125,11 +119,8 @@ void firework(int width, int height, const firework_params_t* params) {
                             break;
                     }
 
-                    int index = (y % 2 == 0)
-                        ? y * width + x
-                        : y * width + (width - 1 - x);
-
-                    ws2812_set_pixel_color(index, r, g, b);
+                    // UPDATED: Use centralized driver logic
+                    ws2812_draw_pixel(x, y, width, height, r, g, b);
                 }
             }
         }
@@ -145,7 +136,6 @@ void firework(int width, int height, const firework_params_t* params) {
     }
 
     // --- FADE-OUT LOOP ---
-    // This loop uses the 'fade_factor' from params
     for (int frame = 0; frame < 30; frame++) {
         uint32_t* buf = ws2812_get_buffer();
         for (int i = 0; i < NUM_LEDS; ++i) {
