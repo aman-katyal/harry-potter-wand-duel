@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @brief Dual-Core Wand Duel - Receive Animations Only
+ * @brief Dual-Core Wand Duel - Shield Button Fixed (Active High)
  */
 
 #include <stdio.h>
@@ -81,13 +81,11 @@ void core1_entry() {
             ai_result_t result;
             result.parts.spell_id = SPELL_LOGIC_NONE;
             
-            // Map Edge Impulse labels to Logic IDs
             if (strcmp(res.label, "aguamenti") == 0) result.parts.spell_id = SPELL_LOGIC_AGUAMENTI;
             else if (strcmp(res.label, "stupefy") == 0) result.parts.spell_id = SPELL_LOGIC_STUPEFY;
 
             result.parts.confidence = (uint8_t)(res.confidence * 100);
             
-            // Clamp anomaly to 10.0 max, then scale by 10 (2.5 -> 25)
             float anom_clamped = (res.anomaly_score > 10.0f) ? 10.0f : res.anomaly_score;
             result.parts.anomaly = (uint8_t)(anom_clamped * 10); 
 
@@ -102,7 +100,7 @@ void core1_entry() {
 int main() {
     stdio_init_all();
     sleep_ms(2000); 
-    printf("=== WAND SYSTEM BOOT ===\n");
+    printf("=== WAND SYSTEM BOOT (ID: %d) ===\n", PLAYER_ID);
 
     // --- 1. Init Hardware ---
     i2c_init(I2C_IMU_PORT, 400 * 1000);
@@ -111,12 +109,8 @@ int main() {
     gpio_pull_up(PIN_IMU_SDA);
     gpio_pull_up(PIN_IMU_SCL);
 
-    i2c_init(I2C_HAPTIC_PORT, 400 * 1000);
-    gpio_set_function(PIN_HAPTIC_SDA, GPIO_FUNC_I2C);
-    gpio_set_function(PIN_HAPTIC_SCL, GPIO_FUNC_I2C);
-    gpio_pull_up(PIN_HAPTIC_SDA);
-    gpio_pull_up(PIN_HAPTIC_SCL);
-
+    // Note: Haptics reuse I2C0, pins already set above.
+    
     if (drv2605_init(&haptic, I2C_HAPTIC_PORT, PIN_HAPTIC_SDA, PIN_HAPTIC_SCL)) {
         drv2605_set_mode(&haptic, DRV2605_MODE_INTTRIG);
         drv2605_select_library(&haptic, 1);
@@ -126,6 +120,12 @@ int main() {
     ws2812_clear();
     hb_init(MATRIX_WIDTH, MATRIX_HEIGHT);
     hb_draw(); 
+
+    // --- BUTTON INIT (Active High / External Pull-Down) ---
+    gpio_init(PIN_BTN_SHIELD);
+    gpio_set_dir(PIN_BTN_SHIELD, GPIO_IN);
+    // DISABLED internal pull-up because you have external pull-down
+    gpio_disable_pulls(PIN_BTN_SHIELD); 
 
     if (!bno08x_begin_i2c(&bno08x, I2C_IMU_PORT, BNO08x_I2CADDR_DEFAULT, -1)) {
         printf("IMU FAIL!\n");
@@ -144,6 +144,7 @@ int main() {
     uint64_t last_poll_time = 0;
     uint64_t last_ai_check = 0;
     uint64_t next_valid_cast_time = 0; 
+    uint64_t shield_cooldown_end = 0;
 
     uint32_t candidate_spell = SPELL_LOGIC_NONE;
     int      spell_score = 0;
@@ -158,7 +159,41 @@ int main() {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
         uint64_t now_ms = now_us / 1000;
 
+        // ----------------------------------------
+        // 0. SHIELD BUTTON LOGIC (Active High)
+        // ----------------------------------------
+        // gpio_get returns true (1) when HIGH (Pressed)
+        if (gpio_get(PIN_BTN_SHIELD)) {
+            
+            if (now_ms > shield_cooldown_end) {
+                printf(">>> SHIELD ACTIVE! <<<\n");
+                
+                // Play Animation (Blocking - Immune during this time)
+                controller(0, MATRIX_WIDTH, MATRIX_HEIGHT);
+                
+                // Cleanup after shield
+                ws2812_clear();
+                hb_draw();
+                
+                // Clear any buffered hits (Immunity)
+                ir_decoded_data_t trash;
+                while(ir_receiver_decode(&trash)) {
+                    ir_receiver_resume();
+                }
+
+                // Set Cooldown
+                shield_cooldown_end = now_ms + SHIELD_COOLDOWN_MS;
+                printf(">>> Shield Down. Cooldown for %d ms\n", SHIELD_COOLDOWN_MS);
+            } 
+            else {
+                // Optional: Print cooldown warning (throttled)
+                // printf("Shield on Cooldown!\n");
+            }
+        }
+
+        // ----------------------------------------
         // 1. POLLING
+        // ----------------------------------------
         if (now_us - last_poll_time >= SENSOR_POLL_US) {
             last_poll_time = now_us;
             while (bno08x_get_sensor_event(&bno08x, &val)) {
@@ -179,7 +214,9 @@ int main() {
             rb_push(acc.x, acc.y, acc.z, ypr.r, ypr.p, ypr.y);
         }
 
+        // ----------------------------------------
         // 2. AI TRIGGER
+        // ----------------------------------------
         if (!ai_is_busy && (now_ms - last_ai_check >= AI_CHECK_INTERVAL_MS)) {
             if (now_ms >= next_valid_cast_time) {
                 rb_unroll_to_exchange();
@@ -189,7 +226,9 @@ int main() {
             }
         }
 
+        // ----------------------------------------
         // 3. CASTING LOGIC
+        // ----------------------------------------
         if (multicore_fifo_rvalid()) {
             uint32_t packed = multicore_fifo_pop_blocking();
             ai_is_busy = false;
@@ -225,54 +264,51 @@ int main() {
             if (spell_score >= SPELL_TRIGGER_TARGET) {
                 printf(">>> CAST SPELL %d! <<<\n", (int)candidate_spell);
                 
-                // Feedback: Haptics Only
                 if (drv2605_is_playing(&haptic)) drv2605_play_cast_feedback(&haptic);
                 
-                // IR Transmission
                 uint8_t ir_cmd = (candidate_spell == SPELL_LOGIC_AGUAMENTI) ? 10 : 20; 
-                ir_emitter_start(2, ir_cmd, 3);
+                ir_emitter_start(PLAYER_ID, ir_cmd, 3); 
                 
-                // Note: Animation REMOVED from here per user request. 
-                // We only animate when we RECEIVE a spell.
-
                 spell_score = 0;
                 candidate_spell = SPELL_LOGIC_NONE;
                 next_valid_cast_time = now_ms + POST_CAST_LOCKOUT_MS;
             }
         }
 
-        // 4. HIT LOGIC (RECEIVE)
+        // ----------------------------------------
+        // 4. HIT LOGIC
+        // ----------------------------------------
         ir_decoded_data_t rx_data;
         if (ir_receiver_decode(&rx_data)) {
             if (rx_data.protocol == IR_PROTOCOL_NEC) {
-                printf("HIT by Cmd: %d\n", rx_data.command);
-                
-                if (drv2605_is_playing(&haptic)) drv2605_play_hit_feedback(&haptic);
-                
-                // Take Damage
-                hb_update(-2); 
-                
-                // --- PLAY ANIMATION BASED ON RECEIVED SPELL ---
-                ws2812_clear();
-                
-                if (rx_data.command == 10) {
-                    // Received Aguamenti (Water/Blue)
-                    controller(2, MATRIX_WIDTH, MATRIX_HEIGHT);
+                // SELF-HIT PREVENTION
+                if (rx_data.address == PLAYER_ID) {
+                    printf("Ignored self-hit (ID: %d)\n", rx_data.address);
                 } 
-                else if (rx_data.command == 20) {
-                    // Received Stupefy (Red)
-                    controller(1, MATRIX_WIDTH, MATRIX_HEIGHT);
+                else {
+                    printf("HIT by Player %d! Cmd: %d\n", rx_data.address, rx_data.command);
+                    
+                    if (drv2605_is_playing(&haptic)) drv2605_play_hit_feedback(&haptic);
+                    
+                    hb_update(-2); 
+                    
+                    ws2812_clear();
+                    
+                    if (rx_data.command == 10) {
+                        controller(2, MATRIX_WIDTH, MATRIX_HEIGHT);
+                    } 
+                    else if (rx_data.command == 20) {
+                        controller(1, MATRIX_WIDTH, MATRIX_HEIGHT);
+                    }
+                    
+                    if (hb_current() <= 0) {
+                        loser_screen(MATRIX_WIDTH, MATRIX_HEIGHT);
+                        sleep_ms(2000);
+                        hb_reset();
+                    }
+                    
+                    hb_draw();
                 }
-                
-                // Check Death
-                if (hb_current() <= 0) {
-                    loser_screen(MATRIX_WIDTH, MATRIX_HEIGHT);
-                    sleep_ms(2000);
-                    hb_reset();
-                }
-                
-                // Restore Health Bar
-                hb_draw();
             }
             ir_receiver_resume();
         }

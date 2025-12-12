@@ -11,7 +11,7 @@
 void controller(uint8_t spell_num, int width, int height) 
 {
     // Ensure we are in rotation mode 1 (90 degrees) for your matrix setup
-    ws2812_set_rotation(1); 
+    ws2812_set_rotation(2); 
 
     switch (spell_num) {
         // --- Spell 0: Shield (Reserved for Button) ---
