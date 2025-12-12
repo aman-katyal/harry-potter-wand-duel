@@ -1,15 +1,17 @@
 #include "ws2812.h"
 #include "hardware/pio.h"
 #include "hardware/dma.h"
-#include "hardware/clocks.h" // <--- ADD THIS (Required for clock_get_hz)
+#include "hardware/clocks.h" 
 #include "ws2812.pio.h"
+// Include config for PIN_LED if not defined in ws2812.h
+#include "../../src/sys_config.h"
 
 // Globals
 PIO pio = pio0;
 uint sm = 0;
-int dma_chan = 0; // Changed to variable so we can claim it dynamically
+int dma_chan = 0; 
 uint32_t led_buffer[NUM_LEDS];
-static int current_rotation = 0; // 0=Normal, 1=Rotated
+static int current_rotation = 0; // 0=0°, 1=90°, 2=180°, 3=270°
 
 // ------------------------------------------------------------
 // Low-level PIO Init
@@ -36,7 +38,6 @@ void ws2812_program_init_fixed(PIO pio, uint sm, uint offset, uint pin, float fr
 // DMA Setup
 // ------------------------------------------------------------
 static void ws2812_setup_dma() {
-    // Best practice: Ask the SDK for an unused channel instead of hardcoding
     dma_chan = dma_claim_unused_channel(true);
 
     dma_channel_config c = dma_channel_get_default_config(dma_chan);
@@ -63,7 +64,7 @@ void ws2812_init() {
     uint offset = pio_add_program(pio, &ws2812_program);
 
     // Initialize State Machine
-    ws2812_program_init_fixed(pio, sm, offset, LED_PIN, 800000.0f);
+    ws2812_program_init_fixed(pio, sm, offset, PIN_LED, 800000.0f);
 
     // Initialize DMA
     ws2812_setup_dma();
@@ -114,18 +115,29 @@ void ws2812_draw_pixel(int x, int y, int width, int height, uint8_t r, uint8_t g
     int phys_x, phys_y;
 
     // 1. Apply Rotation
-    if (current_rotation == 1) {
-        // 90 Degree Rotation (Top becomes Left)
-        phys_x = y;
-        phys_y = (width - 1) - x;
-    } 
-    else {
-        // Normal Orientation
-        phys_x = x;
-        phys_y = y;
+    switch (current_rotation) {
+        case 1: // 90 Degrees CCW (Your previous logic)
+            phys_x = y;
+            phys_y = (width - 1) - x;
+            break;
+            
+        case 2: // 180 Degrees
+            phys_x = (width - 1) - x;
+            phys_y = (height - 1) - y;
+            break;
+            
+        case 3: // 270 Degrees CCW (or 90 CW)
+            phys_x = (height - 1) - y;
+            phys_y = x;
+            break;
+            
+        default: // 0 Degrees (Normal)
+            phys_x = x;
+            phys_y = y;
+            break;
     }
 
-    // 2. Bounds Check (Safety first!)
+    // 2. Bounds Check
     if (phys_x < 0 || phys_x >= width || phys_y < 0 || phys_y >= height) {
         return;
     }

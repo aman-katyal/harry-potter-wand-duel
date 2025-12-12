@@ -52,7 +52,7 @@
 #define SPELL_DECAY_RATE         2      
 
 // 4. SHIELD MECHANICS
-#define SHIELD_COOLDOWN_MS       5000   // 5 Seconds cooldown after shield drops
+#define SHIELD_COOLDOWN_MS       10000   // 5 Seconds cooldown after shield drops
 
 // Timings
 #define SENSOR_POLL_RATE_HZ      74     
