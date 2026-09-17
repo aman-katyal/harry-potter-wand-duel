@@ -4,10 +4,14 @@
 #include "pico/stdlib.h"
 
 // ==========================================
-// --- PLAYER IDENTITY ---
+// --- PLAYER IDENTITY & DEBUG ---
 // ==========================================
 // Change this to 2 for the second wand!
 #define PLAYER_ID           1   
+
+// Set to 1 to allow shooting yourself (for testing/single wand)
+// Set to 0 for actual duel (ignore your own IR signals)
+#define ALLOW_SELF_HIT      1   
 
 // ==========================================
 // --- HARDWARE PINOUT ---
@@ -41,18 +45,18 @@
 // ==========================================
 
 // 1. CONFIDENCE
-#define AI_CONFIDENCE_THRESHOLD  0.8f  
+#define AI_CONFIDENCE_THRESHOLD  0.9f  
 
 // 2. ANOMALY THRESHOLDS
-#define ANOMALY_THRESH_AGUAMENTI  2.4f  
-#define ANOMALY_THRESH_STUPEFY    2.8f  
+#define ANOMALY_THRESH_AGUAMENTI  2.3f  
+#define ANOMALY_THRESH_STUPEFY    2.6f  
 
 // 3. TRIGGER LOGIC ("The Bucket")
 #define SPELL_TRIGGER_TARGET     7      
 #define SPELL_DECAY_RATE         2      
 
 // 4. SHIELD MECHANICS
-#define SHIELD_COOLDOWN_MS       10000   // 5 Seconds cooldown after shield drops
+#define SHIELD_COOLDOWN_MS       10000   // 10 Seconds cooldown
 
 // Timings
 #define SENSOR_POLL_RATE_HZ      74     

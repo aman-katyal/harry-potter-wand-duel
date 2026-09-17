@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @brief Dual-Core Wand Duel - Shield Button Fixed (Active High)
+ * @brief Dual-Core Wand Duel - Self-Hit Toggle Added
  */
 
 #include <stdio.h>
@@ -109,7 +109,7 @@ int main() {
     gpio_pull_up(PIN_IMU_SDA);
     gpio_pull_up(PIN_IMU_SCL);
 
-    // Note: Haptics reuse I2C0, pins already set above.
+    // Haptics share I2C0
     
     if (drv2605_init(&haptic, I2C_HAPTIC_PORT, PIN_HAPTIC_SDA, PIN_HAPTIC_SCL)) {
         drv2605_set_mode(&haptic, DRV2605_MODE_INTTRIG);
@@ -121,10 +121,9 @@ int main() {
     hb_init(MATRIX_WIDTH, MATRIX_HEIGHT);
     hb_draw(); 
 
-    // --- BUTTON INIT (Active High / External Pull-Down) ---
+    // Buttons (Active High)
     gpio_init(PIN_BTN_SHIELD);
     gpio_set_dir(PIN_BTN_SHIELD, GPIO_IN);
-    // DISABLED internal pull-up because you have external pull-down
     gpio_disable_pulls(PIN_BTN_SHIELD); 
 
     if (!bno08x_begin_i2c(&bno08x, I2C_IMU_PORT, BNO08x_I2CADDR_DEFAULT, -1)) {
@@ -160,35 +159,25 @@ int main() {
         uint64_t now_ms = now_us / 1000;
 
         // ----------------------------------------
-        // 0. SHIELD BUTTON LOGIC (Active High)
+        // 0. SHIELD BUTTON LOGIC
         // ----------------------------------------
-        // gpio_get returns true (1) when HIGH (Pressed)
         if (gpio_get(PIN_BTN_SHIELD)) {
-            
             if (now_ms > shield_cooldown_end) {
                 printf(">>> SHIELD ACTIVE! <<<\n");
                 
-                // Play Animation (Blocking - Immune during this time)
                 controller(0, MATRIX_WIDTH, MATRIX_HEIGHT);
                 
-                // Cleanup after shield
                 ws2812_clear();
                 hb_draw();
                 
-                // Clear any buffered hits (Immunity)
                 ir_decoded_data_t trash;
                 while(ir_receiver_decode(&trash)) {
                     ir_receiver_resume();
                 }
 
-                // Set Cooldown
                 shield_cooldown_end = now_ms + SHIELD_COOLDOWN_MS;
-                printf(">>> Shield Down. Cooldown for %d ms\n", SHIELD_COOLDOWN_MS);
+                printf(">>> Shield Down. Cooldown active.\n");
             } 
-            else {
-                // Optional: Print cooldown warning (throttled)
-                // printf("Shield on Cooldown!\n");
-            }
         }
 
         // ----------------------------------------
@@ -281,11 +270,14 @@ int main() {
         ir_decoded_data_t rx_data;
         if (ir_receiver_decode(&rx_data)) {
             if (rx_data.protocol == IR_PROTOCOL_NEC) {
-                // SELF-HIT PREVENTION
-                if (rx_data.address == PLAYER_ID) {
+                
+                // --- MODIFIED SELF-HIT LOGIC ---
+                // Only ignore if it is ME AND Self-Hit is disabled
+                if (!ALLOW_SELF_HIT && rx_data.address == PLAYER_ID) {
                     printf("Ignored self-hit (ID: %d)\n", rx_data.address);
                 } 
                 else {
+                    // Valid Hit (Either Enemy or Self-Hit Allowed)
                     printf("HIT by Player %d! Cmd: %d\n", rx_data.address, rx_data.command);
                     
                     if (drv2605_is_playing(&haptic)) drv2605_play_hit_feedback(&haptic);
