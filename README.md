@@ -1,4 +1,4 @@
-# Harry Potter Wand Duel - RP2040 Embedded Edge-AI System
+# Harry Potter Wand Duel - Embedded Edge-AI System
 
 An interactive, dual-wand dueling system built on the Raspberry Pi RP2040 microcontroller. The wand tracks physical spell-casting gestures in real time using on-device machine learning (TinyML), transmits spell data wirelessly over 38 kHz modulated infrared, renders real-time combat status and animations on a 16x16 RGB LED matrix, and delivers tactile feedback via an onboard haptic motor driver.
 
